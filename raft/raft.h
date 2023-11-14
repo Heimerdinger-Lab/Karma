@@ -48,15 +48,14 @@ class persistence {
 public:
     virtual ~persistence() {}
     virtual co_context::task<> store_term_and_vote(term_t term, server_id vote) = 0;
-    virtual co_context::task<> load_term_and_vote() = 0;
+    virtual co_context::task<std::pair<term_t, server_id>> load_term_and_vote() = 0;
     virtual co_context::task<> store_commit_idx(index_t idx) = 0;
     virtual co_context::task<index_t> load_commit_idx() = 0;
 
     virtual co_context::task<> store_log_entries(const std::vector<log_entry_ptr>& entries) = 0;
     virtual co_context::task<log_entry_vec> load_log() = 0;
+    // committed idx <= stable idx, 所以即使是stabled entries也有可能会被truncate的
     virtual co_context::task<> truncate_log(index_t idx) = 0;
     virtual co_context::task<> abort() = 0;
 };
 
-
-// 
