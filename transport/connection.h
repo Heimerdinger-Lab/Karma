@@ -2,8 +2,8 @@
 #include <co_context/all.hpp>
 #include <vector>
 
-class Connection {
-    Connection(co_context::socket&& socket, std::string addr, uint8_t port) 
+class connection {
+    connection(co_context::socket&& socket, std::string addr, uint8_t port) 
     : m_socket(std::move(socket))
     , m_addr(addr)
     , m_port(port) {}

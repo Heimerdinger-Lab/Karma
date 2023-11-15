@@ -1,6 +1,7 @@
 #pragma once 
 #include <co_context/all.hpp>
 #include "common.h"
+namespace raft {
 class server {
 public:
     virtual ~server() {}
@@ -11,3 +12,4 @@ public:
 };
 
 void create_server();
+}

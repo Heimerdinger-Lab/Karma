@@ -1,5 +1,5 @@
 #include "log.h"
-
+namespace raft {
 log_entry_ptr &log::operator[](size_t i)
 {
     return get_entry(index_t(i));
@@ -105,4 +105,5 @@ log_entry_ptr &log::get_entry(index_t idx)
 const log_entry_ptr &log::get_entry(index_t idx) const
 {
     return m_log[idx - m_first_idx];
+}
 }

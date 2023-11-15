@@ -8,7 +8,7 @@
 
 #include "common.h"
 #include "rpc_message.h"
-
+namespace raft {
 class state_machine {
 public:
     virtual ~state_machine() {}
@@ -58,4 +58,4 @@ public:
     virtual co_context::task<> truncate_log(index_t idx) = 0;
     virtual co_context::task<> abort() = 0;
 };
-
+}

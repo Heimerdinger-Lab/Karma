@@ -2,6 +2,7 @@
 #include <optional>
 
 #include "common.h"
+namespace raft {
 // The value of the first index is 1.
 class log {
     log_entry_vec m_log;
@@ -34,3 +35,4 @@ public:
     std::optional<term_t> term_for(index_t idx) const;
     index_t maybe_append(log_entry_vec&& entries);
 };
+}

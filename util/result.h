@@ -1,25 +1,25 @@
 template<typename T, typename E>
-class Result {
+class result {
 public:
-    enum class Status { Ok, Err };
-    union Value {
+    enum class status { Ok, Err };
+    union value {
         T ok;
         E err;
-        Value(T t) : ok(t) {}
-        Value(E e) : err(e) {}
-        ~Value() {}
+        value(T t) : ok(t) {}
+        value(E e) : err(e) {}
+        ~value() {}
     };
     
-    Result(T t) : status(Status::Ok), value(t) {}
-    Result(E e) : status(Status::Err), value(e) {}
-    ~Result() {}
+    result(T t) : status(status::Ok), value(t) {}
+    result(E e) : status(status::Err), value(e) {}
+    ~result() {}
     
-    bool is_ok() const { return status == Status::Ok; }
-    bool is_err() const { return status == Status::Err; }
+    bool is_ok() const { return status == status::ok; }
+    bool is_err() const { return status == status::err; }
     T ok() const { return value.ok; }
     E err() const { return value.err; }
     
 private:
-    Status status;
-    Value value;
+    status m_status;
+    value m_value;
 };

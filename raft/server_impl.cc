@@ -3,7 +3,7 @@
 #include "fsm.h"
 #include <queue>
 
-
+namespace raft {
 void server_impl::append_entries(server_id from, append_request append_request) {
     m_fsm->step(from, std::move(append_request));
 }
@@ -101,4 +101,5 @@ co_context::task<> server_impl::applier_fiber() {
             m_applied_index_changed.notify_all();
         }, v);
     }
+}
 }

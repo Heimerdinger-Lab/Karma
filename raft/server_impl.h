@@ -2,7 +2,7 @@
 #include "server.h"
 #include "raft.h"
 #include "fsm.h"
-
+namespace raft {
 class server_impl : public rpc_server, public server {
 public:
 
@@ -39,3 +39,4 @@ private:
     co_context::condition_variable m_applied_index_changed;
     co_context::mutex m_applied_index_changed_mtx;
 };
+}

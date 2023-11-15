@@ -1,7 +1,7 @@
 #pragma once
 #include "common.h"
 
-
+namespace raft {
 struct append_request {
     // The leader's term.
     term_t current_term;
@@ -34,11 +34,15 @@ struct append_request {
 
 struct append_reply {
     struct rejected {
+        index_t non_matching_idx;
+        index_t last_idx;
     };
     struct accepted {
+        index_t last_new_idx;
     };
     // Current term, for leader to update itself.
     term_t current_term;
+    index_t commit_idx;
     std::variant<rejected, accepted> result;
 };
 
@@ -52,7 +56,10 @@ struct vote_request {
     // True if this is prevote request
     bool is_prevote;
 };
-
+struct timeout_now {
+    // Current term on a leader
+    term_t current_term;
+};
 struct vote_reply {
     // Current term, for the candidate to update itself.
     term_t current_term;
@@ -66,3 +73,4 @@ using rpc_message = std::variant<append_request,
       append_reply,
       vote_request,
       vote_reply>;
+}

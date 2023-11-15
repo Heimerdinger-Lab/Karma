@@ -10,8 +10,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++20")
 
 add_subdirectory(co_context)
+add_subdirectory(raft)
 
 add_executable(karma main.cc)
 
 target_include_directories(karma PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/co_context/include")
-target_link_libraries(karma co_context)
+target_link_libraries(karma co_context raft)

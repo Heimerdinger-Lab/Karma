@@ -2,7 +2,7 @@
 #include <iostream>
 
 // 它负责数据的释放
-class Frame {
+class frame {
 
 
 private:
