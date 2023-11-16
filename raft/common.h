@@ -24,4 +24,12 @@ struct log_entry {
 using log_entry_ptr = std::shared_ptr<log_entry>;
 using log_entry_vec = std::vector<log_entry_ptr>;
 
+using server_address_set = std::unordered_set<server_id>;
+using config_member_set = std::unordered_set<server_id>;
+
+struct configuration {
+    config_member_set m_current;
+    config_member_set m_previous;
+};
+
 }

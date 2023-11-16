@@ -30,7 +30,24 @@ public:
 };
 
 class election_tracker {
-
+    std::unordered_set<server_id> m_suffrage;
+    std::unordered_set<server_id> m_responded;
+    size_t m_granted = 0;
+public: 
+    election_tracker(const config_member_set& configuration) {
+        for (const auto&s : configuration) {
+            m_suffrage.emplace(s);
+        }
+    }
+    bool register_vote(server_id from, bool granted) {
+        if (m_suffrage.find(from) == m_suffrage.end()) {
+            return false;
+        }
+        if (m_responded.emplace(from).second) {
+            m_granted += granted;
+        }
+        return true;
+    }
 };
 enum class vote_result {
     UNKNOW = 0,
@@ -40,18 +57,15 @@ enum class vote_result {
 struct server_address {
     server_id id;
 };
-struct server_address_hash {
-    using is_transparent = void;
-};
-using server_address_set = std::unordered_set<server_address, server_address_hash, std::equal_to<>>;
+using server_address_set = std::unordered_set<server_address>;
 class votes {
-    server_address_set _voters;
+    server_address_set m_voters;
+    election_tracker m_current;
 public:
     void register_vote(server_id from, bool granted);
     vote_result tally_votes() const;
     const server_address_set& voters() const {
-        return _voters;
+        return m_voters;
     }
-
 };
 }
