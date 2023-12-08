@@ -1,0 +1,1 @@
+flatc --cpp -o protocol/ protocol/fbs/rpc.fbs 

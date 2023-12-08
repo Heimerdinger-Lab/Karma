@@ -1,0 +1,10 @@
+file(GLOB_RECURSE CLIENT_HEADERS "*.h")
+file(GLOB_RECURSE CLIENT_SRCS "*.cc")
+
+message(STATUS "CLIENT_HEADERS: ${CLIENT_HEADERS}")
+message(STATUS "CLIENT_SRCS: ${CLIENT_SRCS}")
+
+add_library(${KARMA_CLIENT} ${CLIENT_HEADERS} ${CLIENT_SRCS})
+target_include_directories(${KARMA_CLIENT} PRIVATE . ${CMAKE_SOURCE_DIR} ${CO_CONTEXT_HEADER})
+
+target_link_libraries(${KARMA_CLIENT})

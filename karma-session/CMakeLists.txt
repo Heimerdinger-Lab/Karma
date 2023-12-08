@@ -1,0 +1,10 @@
+file(GLOB_RECURSE SESSION_HEADERS "*.h")
+file(GLOB_RECURSE SESSION_SRCS "*.cc")
+
+message(STATUS "SESSION_HEADERS: ${SESSION_HEADERS}")
+message(STATUS "SESSION_SRCS: ${SESSION_SRCS}")
+
+add_library(${KARMA_SESSION} ${SESSION_HEADERS} ${SESSION_SRCS})
+target_include_directories(${KARMA_SESSION} PRIVATE . ${CMAKE_SOURCE_DIR})
+
+target_link_libraries(${KARMA_SESSION})

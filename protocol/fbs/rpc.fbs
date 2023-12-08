@@ -1,0 +1,7 @@
+namespace karma_rpc;
+
+enum OperationCode : short {
+    UNKNOW = 0x0000,
+    PING = 0x0001,
+    HEARTBEAT = 0x0002,
+}

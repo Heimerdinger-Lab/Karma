@@ -1,29 +1,44 @@
-#include <co_context/io_context.hpp>
-#include <co_context/lazy_io.hpp>
-using namespace co_context;
+#include "co_context/io_context.hpp"
+#include "co_context/lazy_io.hpp"
+#include <boost/property_tree/ini_parser.hpp>
 
-task<> cycle(int sec, const char *message) {
-    while (true) {
-        co_await timeout(std::chrono::seconds{sec});
-        printf("%s\n", message);
-    }
-}
+// using namespace co_context;
 
-task<> cycle_abs(int sec, const char *message) {
-    auto next = std::chrono::steady_clock::now();
-    while (true) {
-        next = next + std::chrono::seconds{sec};
-        co_await timeout_at(next);
-        printf("%s\n", message);
-    }
-}
+// task<> cycle(int sec, const char *message) {
+//     while (true) {
+//         co_await timeout(std::chrono::seconds{sec});
+//         printf("%s\n", message);
+//     }
+// }
 
+// task<> cycle_abs(int sec, const char *message) {
+//     auto next = std::chrono::steady_clock::now();
+//     while (true) {
+//         next = next + std::chrono::seconds{sec};
+//         co_await timeout_at(next);
+//         printf("%s\n", message);
+//     }
+// }
+
+// int main() {
+//     io_context ctx;
+//     ctx.co_spawn(cycle(1, "1 sec"));
+//     ctx.co_spawn(cycle_abs(1, "1 sec [abs]"));
+//     ctx.co_spawn(cycle(3, "\t3 sec"));
+//     ctx.start();
+//     ctx.join();
+//     return 0;
+// }
+class config {
+public:
+    config() {}
+    std::string addr = "127.0.0.1";
+    uint8_t port = 8888;
+    uint8_t core_num = 8;
+    uint8_t raft_gourp_count = 1;
+};
 int main() {
-    io_context ctx;
-    ctx.co_spawn(cycle(1, "1 sec"));
-    ctx.co_spawn(cycle_abs(1, "1 sec [abs]"));
-    ctx.co_spawn(cycle(3, "\t3 sec"));
-    ctx.start();
-    ctx.join();
+    config demo_config;
+    
     return 0;
 }

@@ -1,0 +1,9 @@
+file(GLOB_RECURSE SOURCES "*.cc")
+
+add_executable(${TEST_KARMA_SERVICE} ${SOURCES})
+
+target_include_directories(${TEST_KARMA_SERVICE} PRIVATE . ${CMAKE_SOURCE_DIR})
+
+target_link_libraries(${TEST_KARMA_SERVICE} ${KARMA_SERVICE} Boost::unit_test_framework)
+
+add_test(NAME ${TEST_KARMA_SERVICE} WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY} COMMAND ${TEST_KARMA_SERVICE})
