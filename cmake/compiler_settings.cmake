@@ -14,11 +14,7 @@ set(KARMA_UTIL "karma-util")
 
 # co_context
 set(CO_CONTEXT "co_context")
-set(CO_CONTEXT_DIR "${CMAKE_SOURCE_DIR}/${CO_CONTEXT}/include")
-
 
 # test
 set(TEST_KARMA_SERVICE test-karma-service)
-
-
 set(KARMA_SERVICE_TESTS ON)

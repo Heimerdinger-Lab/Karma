@@ -8,4 +8,4 @@ add_subdirectory(${KARMA_UTIL})
 
 # 
 add_subdirectory(${CO_CONTEXT})
-set(${CO_CONTEXT_HEADER} "${CMAKE_SOURCE_DIR}/co_context/include" )
+set(${CO_CONTEXT_DIR} "${CMAKE_SOURCE_DIR}/${CO_CONTEXT}/include" )
