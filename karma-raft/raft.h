@@ -58,4 +58,5 @@ public:
     virtual co_context::task<> truncate_log(index_t idx) = 0;
     virtual co_context::task<> abort() = 0;
 };
+
 }

@@ -35,21 +35,21 @@ void server_impl::send_message(server_id id, Message m) {
 
 
 co_context::task<> server_impl::start() {
-    auto [term, vote] = co_await m_persistence->load_term_and_vote();
-    auto log_entries = co_await m_persistence->load_log();
-    auto log_ = log(log_entries);
-    auto commit_idx = co_await m_persistence->load_commit_idx();
-    index_t stable_idx = log_.stable_idx();
-    m_fsm = std::make_unique<fsm>(m_server_id, term, vote, std::move(log_), commit_idx);
-    m_applied_idx = index_t(0);
-    co_spawn(io_fiber(stable_idx));
-    co_spawn(applier_fiber());
-    co_await m_applied_index_changed_mtx.lock();
-    while (m_applied_idx < commit_idx) {
-        // 这就是re apply 那些之前没有做完的entries
-        m_applied_index_changed.wait(m_applied_index_changed_mtx);
-    }
-    m_applied_index_changed_mtx.unlock();
+    // auto [term, vote] = co_await m_persistence->load_term_and_vote();
+    // auto log_entries = co_await m_persistence->load_log();
+    // auto log_ = log(log_entries);
+    // auto commit_idx = co_await m_persistence->load_commit_idx();
+    // index_t stable_idx = log_.stable_idx();
+    // m_fsm = std::make_unique<fsm>(m_server_id, term, vote, std::move(log_), commit_idx);
+    // m_applied_idx = index_t(0);
+    // co_spawn(io_fiber(stable_idx));
+    // co_spawn(applier_fiber());
+    // co_await m_applied_index_changed_mtx.lock();
+    // while (m_applied_idx < commit_idx) {
+    //     // 这就是re apply 那些之前没有做完的entries
+    //     m_applied_index_changed.wait(m_applied_index_changed_mtx);
+    // }
+    // m_applied_index_changed_mtx.unlock();
     co_return;
 }
 void server_impl::tick() {

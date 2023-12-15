@@ -23,4 +23,6 @@ public:
 private:
     time_point m_now = min();
 };
+static constexpr logical_clock::duration ELECTION_TIMEOUT = logical_clock::duration{10};
+
 }

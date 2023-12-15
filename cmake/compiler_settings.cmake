@@ -17,4 +17,6 @@ set(CO_CONTEXT "co_context")
 
 # test
 set(TEST_KARMA_SERVICE test-karma-service)
+set(TEST_KARMA_RAFT test-karma-raft)
 set(KARMA_SERVICE_TESTS ON)
+set(KARMA_RAFT_TESTS ON)

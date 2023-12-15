@@ -11,13 +11,22 @@
 #include "karma-raft/tracker.h"
 namespace raft {
 struct fsm_output {
+    struct applied_snapshot {
+        snapshot_descriptor snp;
+        bool is_local;
+    };
     std::optional<std::pair<term_t, server_id>> term_and_vote;
     log_entry_vec log_entries;
     std::vector<std::pair<server_id, rpc_message>> messages;
 
     // entries to apply
     log_entry_vec committed_entries;
+    std::optional<applied_snapshot> snp;
+    std::vector<snapshot_id> snps_to_drop;
+    std::optional<config_member_set> configuration;
+    std::optional<read_id> max_read_id_with_quorum;
     bool state_changed = false;
+    bool abort_leadership_transfer;
     bool empty() const {
 
     };
@@ -30,16 +39,35 @@ struct follower {
 struct candidate {
     // raft::votes votes;
     votes votes_;
+    bool is_prevote;
 };
 class fsm;
 struct leader {
     // tracker
     tracker m_tracker;
     const fsm &m_fsm;
+    // 暂时不设置
+    // std::unique_ptr<seastar::semaphore> log_limiter_semaphore;
+    std::optional<logical_clock::time_point> m_stepdown;
+    std::optional<server_id> timeout_now_sent;
+    read_id last_read_id{0};
+    bool last_read_id_changed = false;
+    read_id max_read_id_with_quorum{0};
 public:
     leader(const class fsm& fsm_) : m_fsm(fsm_) {}
 };
-
+struct fsm_config {
+    // max size of appended entries in bytes
+    size_t append_request_threshold;
+    // Limit in bytes on the size of in-memory part of the log after
+    // which requests are stopped to be admitted until the log
+    // is shrunk back by a snapshot. Should be greater than
+    // the sum of sizes of trailing log entries, otherwise the state
+    // machine will deadlock.
+    size_t max_log_size;
+    // If set to true will enable prevoting stage during election
+    bool enable_prevoting;
+};
 
 class fsm {
     server_id m_id;
@@ -48,27 +76,38 @@ class fsm {
     server_id m_voted_for;
     index_t m_commit_idx;
     log m_log;
+    failure_detector& m_failure_detector;
+    fsm_config m_config;
+    bool m_abort_leadership_transfer = false;
+    bool m_ping_leader = false;
     struct last_observed_state {
         term_t m_current_term;
-        server_id m_vote_for;
+        server_id m_voted_for;
         index_t m_commit_idx;
+        index_t m_last_conf_idx;
         term_t m_last_term;
+        bool m_abort_leadership_transfer;
 
         bool is_equal(const fsm& fsm) const {
-            return m_current_term == fsm.m_current_term && m_vote_for == fsm.m_voted_for && m_commit_idx == fsm.m_commit_idx && m_last_term == fsm.m_log.last_term();
+            return m_current_term == fsm.m_current_term && m_voted_for == fsm.m_voted_for &&
+                m_commit_idx == fsm.m_commit_idx &&
+                m_last_conf_idx == fsm.m_log.last_conf_idx() &&
+                m_last_term == fsm.m_log.last_term() &&
+                m_abort_leadership_transfer == fsm.m_abort_leadership_transfer;
         }
         void advance(const fsm& fsm) {
             m_current_term =fsm.m_current_term;
-            m_vote_for = fsm.m_voted_for;
+            m_voted_for = fsm.m_voted_for;
             m_commit_idx = fsm.m_commit_idx;
+            m_last_conf_idx = fsm.m_log.last_conf_idx();
             m_last_term = fsm.m_log.last_term();
+            m_abort_leadership_transfer = fsm.m_abort_leadership_transfer;
         }
     } m_observed;
     fsm_output m_output;
     logical_clock m_clock;
     logical_clock::time_point m_last_election_time = logical_clock::min();
-
-    // logical_clock::duration m_randomized_election_timeout = ELECTION_TIMEOUT + logical_clock::duration{1};
+    logical_clock::duration m_randomized_election_timeout = ELECTION_TIMEOUT + logical_clock::duration{1};
 private:
     std::vector<std::pair<server_id, rpc_message>> m_messages;
     co_context::mutex m_events_mtx;
@@ -117,9 +156,9 @@ private:
     void send_timeout_now(server_id);
 public:
     explicit fsm(server_id id, term_t current_term, server_id voted_for, log log,
-            index_t commit_idx);
+            index_t commit_idx, failure_detector& failure_detector, fsm_config conf);
 
-    explicit fsm(server_id id, term_t current_term, server_id voted_for, log log);
+    explicit fsm(server_id id, term_t current_term, server_id voted_for, log log, failure_detector& failure_detector, fsm_config conf);
 
     bool is_leader() const {
         return std::holds_alternative<leader>(m_state);
@@ -175,7 +214,8 @@ public:
     template <typename Message>
     void step(server_id from, const follower& s, Message&& msg);
     void stop();
-
+    void transfer_leadership(logical_clock::duration timeout = logical_clock::duration(0));
+    void broadcast_read_quorum(read_id);
     term_t get_current_term() const {
         return m_current_term;
     }

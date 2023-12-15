@@ -1,7 +1,40 @@
 #include "karma-raft/fsm.h"
+#include "common.h"
+#include <memory>
 namespace raft {
 void fsm::maybe_commit() {
-
+    index_t new_commit_idx = leader_state().m_tracker.committed(m_commit_idx);
+    if (new_commit_idx <= m_commit_idx) {
+        return;
+    }
+    bool committed_conf_change = m_commit_idx < m_log.last_conf_idx() && new_commit_idx >= m_log.last_conf_idx();
+    if (m_log[new_commit_idx]->term != m_current_term) {
+        return;
+    }
+    m_commit_idx = new_commit_idx;
+    m_events.notify_all();
+    if (committed_conf_change) {
+        if (m_log.get_configuration().is_joint()) {
+            configuration cfg(m_log.get_configuration());
+            cfg.leave_joint();
+            m_log.emplace_back(std::make_shared<log_entry>(log_entry{.term = m_current_term, .idx = m_log.next_idx(), .data = std::move(cfg)}));
+            leader_state().m_tracker.set_configuration(m_log.get_configuration(), m_log.last_idx());
+            maybe_commit();
+        } else {
+            auto lp = leader_state().m_tracker.find(m_id);
+            if (lp == nullptr || !lp->m_can_vote) {
+                transfer_leadership();
+            }
+        }
+        if (is_leader() && leader_state().last_read_id != leader_state().max_read_id_with_quorum) {
+            // Since after reconfiguration the quorum will be calculated based on a new config
+            // old reads may never get the quorum. Think about reconfiguration from {A, B, C} to
+            // {A, D, E}. Since D, E never got read_quorum request they will never reply, so the
+            // read will be stuck at least till leader tick. Re-broadcast last request here to expedite
+            // its completion
+            broadcast_read_quorum(leader_state().last_read_id);
+        }
+    }
 }
 
 template <typename Message>
@@ -137,7 +170,7 @@ void fsm::request_vote_reply(server_id from, vote_reply &&vote_reply) {
     auto &state = std::get<candidate>(m_state);
     state.votes_.register_vote(from, vote_reply.vote_granted);
     switch (state.votes_.tally_votes()) {
-    case vote_result::UNKNOW:
+    case vote_result::UNKNOWN:
         break;
     case vote_result::WON:
         become_leader();
@@ -145,6 +178,29 @@ void fsm::request_vote_reply(server_id from, vote_reply &&vote_reply) {
     case vote_result::LOST:
         become_follower(server_id{});
         break;
+    }
+}
+
+fsm::fsm(server_id id, term_t current_term, server_id voted_for, log log,
+        index_t commit_idx, failure_detector& failure_detector, fsm_config config) :
+        m_id(id), m_current_term(current_term), m_voted_for(voted_for),
+        m_log(std::move(log)), m_failure_detector(failure_detector), m_config(config) {
+    if (id == raft::server_id{}) {
+        // throw std::invalid_argument("raft::fsm: raft instance cannot have id zero");
+    }
+    // The snapshot can not contain uncommitted entries
+    m_commit_idx = m_log.get_snapshot().idx;
+    m_observed.advance(*this);
+    // After we observed the state advance commit_idx to persisted one (if provided)
+    // so that the log can be replayed
+    m_commit_idx = std::max(m_commit_idx, commit_idx);
+    // logger.trace("fsm[{}]: starting, current term {}, log length {}, commit index {}", _my_id, _current_term, _log.last_idx(), _commit_idx);
+
+    // Init timeout settings
+    if (m_log.get_configuration().m_current.size() == 1 && m_log.get_configuration().can_vote(m_id)) {
+        become_candidate(m_config.enable_prevoting);
+    } else {
+        reset_election_timeout();
     }
 }
 
@@ -198,7 +254,7 @@ void fsm::become_follower(server_id leader) {
 template <typename T>
 const log_entry &fsm::add_entry(T command) {
     // TODO: 在此处插入 return 语句
-    // m_log.emplace_back(std::make_shared<log_entry>({m_current_term, m_log.next_idx(), std::move(command)}));
+    // m_log.emplace_back(std::make_shared<log_entry>(log_entry{m_current_term, m_log.next_idx(), std::move(command)}));
     // m_sm_events.signal();
 }
 
@@ -222,6 +278,11 @@ co_context::task<fsm_output> fsm::poll_output() {
 }
 
 fsm_output fsm::get_output() {
+    
+}
+
+void fsm::tick() {
+    m_clock.advance();
     
 }
 }
