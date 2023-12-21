@@ -23,4 +23,10 @@ public:
         return m_error == FrameError::Incomplete;
     }
 };
+
+enum connection_error {
+    encode_frame_error,
+    network_error,
 };
+};
+

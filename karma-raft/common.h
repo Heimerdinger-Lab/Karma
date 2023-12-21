@@ -2,6 +2,8 @@
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
+#include <fmt/format.h>
+#include <span>
 #include <stdint.h>
 #include <string>
 #include <vector>
@@ -23,7 +25,7 @@ struct server_address {
     server_id id;
     std::string host;
     uint16_t port;
-    server_address(server_id id, std::string host, uint16_t port)
+    server_address(server_id id, std::string host = "", uint16_t port = 0)
         : id(std::move(id)), host(std::move(host)), port(port) {
     }
 
@@ -38,12 +40,16 @@ struct server_address {
     bool operator<(const server_address& rhs) const {
         return id < rhs.id;
     }
+    std::string encode() {
+        // id:host:port
+    }
+    static server_address parse(std::span<char>);
 };
 struct config_member {
     server_address addr;
     bool can_vote;
 
-    config_member(server_address addr, bool can_vote)
+    config_member(server_address addr, bool can_vote = false)
         : addr(std::move(addr)), can_vote(can_vote) {
     }
 
@@ -102,12 +108,12 @@ struct configuration {
     // Same as contains() but true only if the member can vote.
     bool can_vote(server_id id) const {
         bool can_vote = false;
-        auto it = m_current.find(id);
+        auto it = m_current.find(server_address(id));
         if (it != m_current.end()) {
             can_vote |= it->can_vote;
         }
 
-        it = m_previous.find(id);
+        it = m_previous.find(server_address(id));
         if (it != m_previous.end()) {
             can_vote |= it->can_vote;
         }
@@ -144,6 +150,80 @@ public:
     virtual ~failure_detector() {}
     virtual bool is_alive(server_id server) = 0;
 };
+
+
+struct error : public std::runtime_error {
+    using std::runtime_error::runtime_error;
+};
+
+struct not_a_leader : public error {
+    server_id leader;
+    explicit not_a_leader(server_id l) : error(fmt::format("Not a leader, leader: {}", l)), leader(l) {}
+};
+
+struct not_a_member : public error {
+    explicit not_a_member(std::string err) : error(std::move(err)) {}
+};
+
+
+struct dropped_entry : public error {
+    dropped_entry() : error("Entry was dropped because of a leader change") {}
+};
+
+struct commit_status_unknown : public error {
+    commit_status_unknown() : error("Commit status of the entry is unknown") {}
+};
+
+struct stopped_error : public error {
+    explicit stopped_error(const std::string& reason = "")
+            : error(!reason.empty()
+                    ? fmt::format("Raft instance is stopped, reason: \"{}\"", reason)
+                    : std::string("Raft instance is stopped")) {}
+};
+
+struct conf_change_in_progress : public error {
+    conf_change_in_progress() : error("A configuration change is already in progress") {}
+};
+
+struct config_error : public error {
+    using error::error;
+};
+
+
+struct timeout_error : public error {
+    using error::error;
+};
+
+struct state_machine_error: public error {
+    state_machine_error()
+        : error(fmt::format("State machine error.")) {}
+};
+
+// Should be thrown by the rpc implementation to signal that the connection to the peer has been lost.
+// It's unspecified if any actions caused by rpc were actually performed on the target node.
+struct transport_error: public error {
+    using error::error;
+};
+ 
+
+struct command_is_too_big_error: public error {
+    size_t command_size;
+    size_t limit;
+
+    command_is_too_big_error(size_t command_size, size_t limit)
+        : error(fmt::format("Command size {} is greater than the configured limit {}", command_size, limit))
+        , command_size(command_size)
+        , limit(limit) {}
+};
+
+struct no_other_voting_member : public error {
+    no_other_voting_member() : error("Cannot stepdown because there is no other voting member") {}
+};
+
+struct request_aborted : public error {
+    request_aborted() : error("Request is aborted by a caller") {}
+};
+
 
 }
 

@@ -15,37 +15,1193 @@ static_assert(FLATBUFFERS_VERSION_MAJOR == 23 &&
 
 namespace karma_rpc {
 
+struct AppendEntryRequest;
+struct AppendEntryRequestBuilder;
+struct AppendEntryRequestT;
+
+struct LogEntry;
+struct LogEntryBuilder;
+struct LogEntryT;
+
+struct AppendEntryAccepted;
+struct AppendEntryAcceptedBuilder;
+struct AppendEntryAcceptedT;
+
+struct AppendEntryRejected;
+struct AppendEntryRejectedBuilder;
+struct AppendEntryRejectedT;
+
+struct AppendEntryReply;
+struct AppendEntryReplyBuilder;
+struct AppendEntryReplyT;
+
+struct PingPongRequest;
+struct PingPongRequestBuilder;
+struct PingPongRequestT;
+
+struct PingPongReply;
+struct PingPongReplyBuilder;
+struct PingPongReplyT;
+
 enum OperationCode : int16_t {
   OperationCode_UNKNOW = 0,
-  OperationCode_PING = 1,
+  OperationCode_PING_PONG = 1,
   OperationCode_HEARTBEAT = 2,
+  OperationCode_APPEND_ENTRY = 3,
+  OperationCode_APPEND_ENTRY_REPLY = 4,
   OperationCode_MIN = OperationCode_UNKNOW,
-  OperationCode_MAX = OperationCode_HEARTBEAT
+  OperationCode_MAX = OperationCode_APPEND_ENTRY_REPLY
 };
 
-inline const OperationCode (&EnumValuesOperationCode())[3] {
+inline const OperationCode (&EnumValuesOperationCode())[5] {
   static const OperationCode values[] = {
     OperationCode_UNKNOW,
-    OperationCode_PING,
-    OperationCode_HEARTBEAT
+    OperationCode_PING_PONG,
+    OperationCode_HEARTBEAT,
+    OperationCode_APPEND_ENTRY,
+    OperationCode_APPEND_ENTRY_REPLY
   };
   return values;
 }
 
 inline const char * const *EnumNamesOperationCode() {
-  static const char * const names[4] = {
+  static const char * const names[6] = {
     "UNKNOW",
-    "PING",
+    "PING_PONG",
     "HEARTBEAT",
+    "APPEND_ENTRY",
+    "APPEND_ENTRY_REPLY",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameOperationCode(OperationCode e) {
-  if (::flatbuffers::IsOutRange(e, OperationCode_UNKNOW, OperationCode_HEARTBEAT)) return "";
+  if (::flatbuffers::IsOutRange(e, OperationCode_UNKNOW, OperationCode_APPEND_ENTRY_REPLY)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesOperationCode()[index];
+}
+
+enum AppendEntryResult : uint8_t {
+  AppendEntryResult_NONE = 0,
+  AppendEntryResult_AppendEntryAccepted = 1,
+  AppendEntryResult_AppendEntryRejected = 2,
+  AppendEntryResult_MIN = AppendEntryResult_NONE,
+  AppendEntryResult_MAX = AppendEntryResult_AppendEntryRejected
+};
+
+inline const AppendEntryResult (&EnumValuesAppendEntryResult())[3] {
+  static const AppendEntryResult values[] = {
+    AppendEntryResult_NONE,
+    AppendEntryResult_AppendEntryAccepted,
+    AppendEntryResult_AppendEntryRejected
+  };
+  return values;
+}
+
+inline const char * const *EnumNamesAppendEntryResult() {
+  static const char * const names[4] = {
+    "NONE",
+    "AppendEntryAccepted",
+    "AppendEntryRejected",
+    nullptr
+  };
+  return names;
+}
+
+inline const char *EnumNameAppendEntryResult(AppendEntryResult e) {
+  if (::flatbuffers::IsOutRange(e, AppendEntryResult_NONE, AppendEntryResult_AppendEntryRejected)) return "";
+  const size_t index = static_cast<size_t>(e);
+  return EnumNamesAppendEntryResult()[index];
+}
+
+template<typename T> struct AppendEntryResultTraits {
+  static const AppendEntryResult enum_value = AppendEntryResult_NONE;
+};
+
+template<> struct AppendEntryResultTraits<karma_rpc::AppendEntryAccepted> {
+  static const AppendEntryResult enum_value = AppendEntryResult_AppendEntryAccepted;
+};
+
+template<> struct AppendEntryResultTraits<karma_rpc::AppendEntryRejected> {
+  static const AppendEntryResult enum_value = AppendEntryResult_AppendEntryRejected;
+};
+
+template<typename T> struct AppendEntryResultUnionTraits {
+  static const AppendEntryResult enum_value = AppendEntryResult_NONE;
+};
+
+template<> struct AppendEntryResultUnionTraits<karma_rpc::AppendEntryAcceptedT> {
+  static const AppendEntryResult enum_value = AppendEntryResult_AppendEntryAccepted;
+};
+
+template<> struct AppendEntryResultUnionTraits<karma_rpc::AppendEntryRejectedT> {
+  static const AppendEntryResult enum_value = AppendEntryResult_AppendEntryRejected;
+};
+
+struct AppendEntryResultUnion {
+  AppendEntryResult type;
+  void *value;
+
+  AppendEntryResultUnion() : type(AppendEntryResult_NONE), value(nullptr) {}
+  AppendEntryResultUnion(AppendEntryResultUnion&& u) FLATBUFFERS_NOEXCEPT :
+    type(AppendEntryResult_NONE), value(nullptr)
+    { std::swap(type, u.type); std::swap(value, u.value); }
+  AppendEntryResultUnion(const AppendEntryResultUnion &);
+  AppendEntryResultUnion &operator=(const AppendEntryResultUnion &u)
+    { AppendEntryResultUnion t(u); std::swap(type, t.type); std::swap(value, t.value); return *this; }
+  AppendEntryResultUnion &operator=(AppendEntryResultUnion &&u) FLATBUFFERS_NOEXCEPT
+    { std::swap(type, u.type); std::swap(value, u.value); return *this; }
+  ~AppendEntryResultUnion() { Reset(); }
+
+  void Reset();
+
+  template <typename T>
+  void Set(T&& val) {
+    typedef typename std::remove_reference<T>::type RT;
+    Reset();
+    type = AppendEntryResultUnionTraits<RT>::enum_value;
+    if (type != AppendEntryResult_NONE) {
+      value = new RT(std::forward<T>(val));
+    }
+  }
+
+  static void *UnPack(const void *obj, AppendEntryResult type, const ::flatbuffers::resolver_function_t *resolver);
+  ::flatbuffers::Offset<void> Pack(::flatbuffers::FlatBufferBuilder &_fbb, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr) const;
+
+  karma_rpc::AppendEntryAcceptedT *AsAppendEntryAccepted() {
+    return type == AppendEntryResult_AppendEntryAccepted ?
+      reinterpret_cast<karma_rpc::AppendEntryAcceptedT *>(value) : nullptr;
+  }
+  const karma_rpc::AppendEntryAcceptedT *AsAppendEntryAccepted() const {
+    return type == AppendEntryResult_AppendEntryAccepted ?
+      reinterpret_cast<const karma_rpc::AppendEntryAcceptedT *>(value) : nullptr;
+  }
+  karma_rpc::AppendEntryRejectedT *AsAppendEntryRejected() {
+    return type == AppendEntryResult_AppendEntryRejected ?
+      reinterpret_cast<karma_rpc::AppendEntryRejectedT *>(value) : nullptr;
+  }
+  const karma_rpc::AppendEntryRejectedT *AsAppendEntryRejected() const {
+    return type == AppendEntryResult_AppendEntryRejected ?
+      reinterpret_cast<const karma_rpc::AppendEntryRejectedT *>(value) : nullptr;
+  }
+};
+
+bool VerifyAppendEntryResult(::flatbuffers::Verifier &verifier, const void *obj, AppendEntryResult type);
+bool VerifyAppendEntryResultVector(::flatbuffers::Verifier &verifier, const ::flatbuffers::Vector<::flatbuffers::Offset<void>> *values, const ::flatbuffers::Vector<uint8_t> *types);
+
+struct AppendEntryRequestT : public ::flatbuffers::NativeTable {
+  typedef AppendEntryRequest TableType;
+  int64_t from_id = -1LL;
+  int64_t group_id = -1LL;
+  int64_t current_term = -1LL;
+  int64_t leader_id = -1LL;
+  int64_t prev_log_idx = -1LL;
+  int64_t prev_log_term = -1LL;
+  int64_t leader_commit_idx = -1LL;
+  std::vector<std::unique_ptr<karma_rpc::LogEntryT>> entries{};
+  AppendEntryRequestT() = default;
+  AppendEntryRequestT(const AppendEntryRequestT &o);
+  AppendEntryRequestT(AppendEntryRequestT&&) FLATBUFFERS_NOEXCEPT = default;
+  AppendEntryRequestT &operator=(AppendEntryRequestT o) FLATBUFFERS_NOEXCEPT;
+};
+
+struct AppendEntryRequest FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef AppendEntryRequestT NativeTableType;
+  typedef AppendEntryRequestBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_FROM_ID = 4,
+    VT_GROUP_ID = 6,
+    VT_CURRENT_TERM = 8,
+    VT_LEADER_ID = 10,
+    VT_PREV_LOG_IDX = 12,
+    VT_PREV_LOG_TERM = 14,
+    VT_LEADER_COMMIT_IDX = 16,
+    VT_ENTRIES = 18
+  };
+  int64_t from_id() const {
+    return GetField<int64_t>(VT_FROM_ID, -1LL);
+  }
+  int64_t group_id() const {
+    return GetField<int64_t>(VT_GROUP_ID, -1LL);
+  }
+  int64_t current_term() const {
+    return GetField<int64_t>(VT_CURRENT_TERM, -1LL);
+  }
+  int64_t leader_id() const {
+    return GetField<int64_t>(VT_LEADER_ID, -1LL);
+  }
+  int64_t prev_log_idx() const {
+    return GetField<int64_t>(VT_PREV_LOG_IDX, -1LL);
+  }
+  int64_t prev_log_term() const {
+    return GetField<int64_t>(VT_PREV_LOG_TERM, -1LL);
+  }
+  int64_t leader_commit_idx() const {
+    return GetField<int64_t>(VT_LEADER_COMMIT_IDX, -1LL);
+  }
+  const ::flatbuffers::Vector<::flatbuffers::Offset<karma_rpc::LogEntry>> *entries() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<karma_rpc::LogEntry>> *>(VT_ENTRIES);
+  }
+  bool Verify(::flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<int64_t>(verifier, VT_FROM_ID, 8) &&
+           VerifyField<int64_t>(verifier, VT_GROUP_ID, 8) &&
+           VerifyField<int64_t>(verifier, VT_CURRENT_TERM, 8) &&
+           VerifyField<int64_t>(verifier, VT_LEADER_ID, 8) &&
+           VerifyField<int64_t>(verifier, VT_PREV_LOG_IDX, 8) &&
+           VerifyField<int64_t>(verifier, VT_PREV_LOG_TERM, 8) &&
+           VerifyField<int64_t>(verifier, VT_LEADER_COMMIT_IDX, 8) &&
+           VerifyOffset(verifier, VT_ENTRIES) &&
+           verifier.VerifyVector(entries()) &&
+           verifier.VerifyVectorOfTables(entries()) &&
+           verifier.EndTable();
+  }
+  AppendEntryRequestT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(AppendEntryRequestT *_o, const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static ::flatbuffers::Offset<AppendEntryRequest> Pack(::flatbuffers::FlatBufferBuilder &_fbb, const AppendEntryRequestT* _o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct AppendEntryRequestBuilder {
+  typedef AppendEntryRequest Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_from_id(int64_t from_id) {
+    fbb_.AddElement<int64_t>(AppendEntryRequest::VT_FROM_ID, from_id, -1LL);
+  }
+  void add_group_id(int64_t group_id) {
+    fbb_.AddElement<int64_t>(AppendEntryRequest::VT_GROUP_ID, group_id, -1LL);
+  }
+  void add_current_term(int64_t current_term) {
+    fbb_.AddElement<int64_t>(AppendEntryRequest::VT_CURRENT_TERM, current_term, -1LL);
+  }
+  void add_leader_id(int64_t leader_id) {
+    fbb_.AddElement<int64_t>(AppendEntryRequest::VT_LEADER_ID, leader_id, -1LL);
+  }
+  void add_prev_log_idx(int64_t prev_log_idx) {
+    fbb_.AddElement<int64_t>(AppendEntryRequest::VT_PREV_LOG_IDX, prev_log_idx, -1LL);
+  }
+  void add_prev_log_term(int64_t prev_log_term) {
+    fbb_.AddElement<int64_t>(AppendEntryRequest::VT_PREV_LOG_TERM, prev_log_term, -1LL);
+  }
+  void add_leader_commit_idx(int64_t leader_commit_idx) {
+    fbb_.AddElement<int64_t>(AppendEntryRequest::VT_LEADER_COMMIT_IDX, leader_commit_idx, -1LL);
+  }
+  void add_entries(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<karma_rpc::LogEntry>>> entries) {
+    fbb_.AddOffset(AppendEntryRequest::VT_ENTRIES, entries);
+  }
+  explicit AppendEntryRequestBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<AppendEntryRequest> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<AppendEntryRequest>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<AppendEntryRequest> CreateAppendEntryRequest(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    int64_t from_id = -1LL,
+    int64_t group_id = -1LL,
+    int64_t current_term = -1LL,
+    int64_t leader_id = -1LL,
+    int64_t prev_log_idx = -1LL,
+    int64_t prev_log_term = -1LL,
+    int64_t leader_commit_idx = -1LL,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<karma_rpc::LogEntry>>> entries = 0) {
+  AppendEntryRequestBuilder builder_(_fbb);
+  builder_.add_leader_commit_idx(leader_commit_idx);
+  builder_.add_prev_log_term(prev_log_term);
+  builder_.add_prev_log_idx(prev_log_idx);
+  builder_.add_leader_id(leader_id);
+  builder_.add_current_term(current_term);
+  builder_.add_group_id(group_id);
+  builder_.add_from_id(from_id);
+  builder_.add_entries(entries);
+  return builder_.Finish();
+}
+
+inline ::flatbuffers::Offset<AppendEntryRequest> CreateAppendEntryRequestDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    int64_t from_id = -1LL,
+    int64_t group_id = -1LL,
+    int64_t current_term = -1LL,
+    int64_t leader_id = -1LL,
+    int64_t prev_log_idx = -1LL,
+    int64_t prev_log_term = -1LL,
+    int64_t leader_commit_idx = -1LL,
+    const std::vector<::flatbuffers::Offset<karma_rpc::LogEntry>> *entries = nullptr) {
+  auto entries__ = entries ? _fbb.CreateVector<::flatbuffers::Offset<karma_rpc::LogEntry>>(*entries) : 0;
+  return karma_rpc::CreateAppendEntryRequest(
+      _fbb,
+      from_id,
+      group_id,
+      current_term,
+      leader_id,
+      prev_log_idx,
+      prev_log_term,
+      leader_commit_idx,
+      entries__);
+}
+
+::flatbuffers::Offset<AppendEntryRequest> CreateAppendEntryRequest(::flatbuffers::FlatBufferBuilder &_fbb, const AppendEntryRequestT *_o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+struct LogEntryT : public ::flatbuffers::NativeTable {
+  typedef LogEntry TableType;
+  int64_t term = -1LL;
+  int64_t index = -1LL;
+  std::string command{};
+};
+
+struct LogEntry FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef LogEntryT NativeTableType;
+  typedef LogEntryBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_TERM = 4,
+    VT_INDEX = 6,
+    VT_COMMAND = 8
+  };
+  int64_t term() const {
+    return GetField<int64_t>(VT_TERM, -1LL);
+  }
+  int64_t index() const {
+    return GetField<int64_t>(VT_INDEX, -1LL);
+  }
+  const ::flatbuffers::String *command() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_COMMAND);
+  }
+  bool Verify(::flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<int64_t>(verifier, VT_TERM, 8) &&
+           VerifyField<int64_t>(verifier, VT_INDEX, 8) &&
+           VerifyOffset(verifier, VT_COMMAND) &&
+           verifier.VerifyString(command()) &&
+           verifier.EndTable();
+  }
+  LogEntryT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(LogEntryT *_o, const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static ::flatbuffers::Offset<LogEntry> Pack(::flatbuffers::FlatBufferBuilder &_fbb, const LogEntryT* _o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct LogEntryBuilder {
+  typedef LogEntry Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_term(int64_t term) {
+    fbb_.AddElement<int64_t>(LogEntry::VT_TERM, term, -1LL);
+  }
+  void add_index(int64_t index) {
+    fbb_.AddElement<int64_t>(LogEntry::VT_INDEX, index, -1LL);
+  }
+  void add_command(::flatbuffers::Offset<::flatbuffers::String> command) {
+    fbb_.AddOffset(LogEntry::VT_COMMAND, command);
+  }
+  explicit LogEntryBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<LogEntry> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<LogEntry>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<LogEntry> CreateLogEntry(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    int64_t term = -1LL,
+    int64_t index = -1LL,
+    ::flatbuffers::Offset<::flatbuffers::String> command = 0) {
+  LogEntryBuilder builder_(_fbb);
+  builder_.add_index(index);
+  builder_.add_term(term);
+  builder_.add_command(command);
+  return builder_.Finish();
+}
+
+inline ::flatbuffers::Offset<LogEntry> CreateLogEntryDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    int64_t term = -1LL,
+    int64_t index = -1LL,
+    const char *command = nullptr) {
+  auto command__ = command ? _fbb.CreateString(command) : 0;
+  return karma_rpc::CreateLogEntry(
+      _fbb,
+      term,
+      index,
+      command__);
+}
+
+::flatbuffers::Offset<LogEntry> CreateLogEntry(::flatbuffers::FlatBufferBuilder &_fbb, const LogEntryT *_o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+struct AppendEntryAcceptedT : public ::flatbuffers::NativeTable {
+  typedef AppendEntryAccepted TableType;
+  int64_t non_matching_idx = -1LL;
+  int64_t last_idx = -1LL;
+};
+
+struct AppendEntryAccepted FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef AppendEntryAcceptedT NativeTableType;
+  typedef AppendEntryAcceptedBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_NON_MATCHING_IDX = 4,
+    VT_LAST_IDX = 6
+  };
+  int64_t non_matching_idx() const {
+    return GetField<int64_t>(VT_NON_MATCHING_IDX, -1LL);
+  }
+  int64_t last_idx() const {
+    return GetField<int64_t>(VT_LAST_IDX, -1LL);
+  }
+  bool Verify(::flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<int64_t>(verifier, VT_NON_MATCHING_IDX, 8) &&
+           VerifyField<int64_t>(verifier, VT_LAST_IDX, 8) &&
+           verifier.EndTable();
+  }
+  AppendEntryAcceptedT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(AppendEntryAcceptedT *_o, const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static ::flatbuffers::Offset<AppendEntryAccepted> Pack(::flatbuffers::FlatBufferBuilder &_fbb, const AppendEntryAcceptedT* _o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct AppendEntryAcceptedBuilder {
+  typedef AppendEntryAccepted Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_non_matching_idx(int64_t non_matching_idx) {
+    fbb_.AddElement<int64_t>(AppendEntryAccepted::VT_NON_MATCHING_IDX, non_matching_idx, -1LL);
+  }
+  void add_last_idx(int64_t last_idx) {
+    fbb_.AddElement<int64_t>(AppendEntryAccepted::VT_LAST_IDX, last_idx, -1LL);
+  }
+  explicit AppendEntryAcceptedBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<AppendEntryAccepted> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<AppendEntryAccepted>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<AppendEntryAccepted> CreateAppendEntryAccepted(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    int64_t non_matching_idx = -1LL,
+    int64_t last_idx = -1LL) {
+  AppendEntryAcceptedBuilder builder_(_fbb);
+  builder_.add_last_idx(last_idx);
+  builder_.add_non_matching_idx(non_matching_idx);
+  return builder_.Finish();
+}
+
+::flatbuffers::Offset<AppendEntryAccepted> CreateAppendEntryAccepted(::flatbuffers::FlatBufferBuilder &_fbb, const AppendEntryAcceptedT *_o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+struct AppendEntryRejectedT : public ::flatbuffers::NativeTable {
+  typedef AppendEntryRejected TableType;
+  int64_t last_new_idx = -1LL;
+};
+
+struct AppendEntryRejected FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef AppendEntryRejectedT NativeTableType;
+  typedef AppendEntryRejectedBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_LAST_NEW_IDX = 4
+  };
+  int64_t last_new_idx() const {
+    return GetField<int64_t>(VT_LAST_NEW_IDX, -1LL);
+  }
+  bool Verify(::flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<int64_t>(verifier, VT_LAST_NEW_IDX, 8) &&
+           verifier.EndTable();
+  }
+  AppendEntryRejectedT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(AppendEntryRejectedT *_o, const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static ::flatbuffers::Offset<AppendEntryRejected> Pack(::flatbuffers::FlatBufferBuilder &_fbb, const AppendEntryRejectedT* _o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct AppendEntryRejectedBuilder {
+  typedef AppendEntryRejected Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_last_new_idx(int64_t last_new_idx) {
+    fbb_.AddElement<int64_t>(AppendEntryRejected::VT_LAST_NEW_IDX, last_new_idx, -1LL);
+  }
+  explicit AppendEntryRejectedBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<AppendEntryRejected> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<AppendEntryRejected>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<AppendEntryRejected> CreateAppendEntryRejected(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    int64_t last_new_idx = -1LL) {
+  AppendEntryRejectedBuilder builder_(_fbb);
+  builder_.add_last_new_idx(last_new_idx);
+  return builder_.Finish();
+}
+
+::flatbuffers::Offset<AppendEntryRejected> CreateAppendEntryRejected(::flatbuffers::FlatBufferBuilder &_fbb, const AppendEntryRejectedT *_o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+struct AppendEntryReplyT : public ::flatbuffers::NativeTable {
+  typedef AppendEntryReply TableType;
+  int64_t from_id = -1LL;
+  int64_t group_id = -1LL;
+  int64_t term = -1LL;
+  int64_t index = -1LL;
+  karma_rpc::AppendEntryResultUnion result{};
+};
+
+struct AppendEntryReply FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef AppendEntryReplyT NativeTableType;
+  typedef AppendEntryReplyBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_FROM_ID = 4,
+    VT_GROUP_ID = 6,
+    VT_TERM = 8,
+    VT_INDEX = 10,
+    VT_RESULT_TYPE = 12,
+    VT_RESULT = 14
+  };
+  int64_t from_id() const {
+    return GetField<int64_t>(VT_FROM_ID, -1LL);
+  }
+  int64_t group_id() const {
+    return GetField<int64_t>(VT_GROUP_ID, -1LL);
+  }
+  int64_t term() const {
+    return GetField<int64_t>(VT_TERM, -1LL);
+  }
+  int64_t index() const {
+    return GetField<int64_t>(VT_INDEX, -1LL);
+  }
+  karma_rpc::AppendEntryResult result_type() const {
+    return static_cast<karma_rpc::AppendEntryResult>(GetField<uint8_t>(VT_RESULT_TYPE, 0));
+  }
+  const void *result() const {
+    return GetPointer<const void *>(VT_RESULT);
+  }
+  template<typename T> const T *result_as() const;
+  const karma_rpc::AppendEntryAccepted *result_as_AppendEntryAccepted() const {
+    return result_type() == karma_rpc::AppendEntryResult_AppendEntryAccepted ? static_cast<const karma_rpc::AppendEntryAccepted *>(result()) : nullptr;
+  }
+  const karma_rpc::AppendEntryRejected *result_as_AppendEntryRejected() const {
+    return result_type() == karma_rpc::AppendEntryResult_AppendEntryRejected ? static_cast<const karma_rpc::AppendEntryRejected *>(result()) : nullptr;
+  }
+  bool Verify(::flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<int64_t>(verifier, VT_FROM_ID, 8) &&
+           VerifyField<int64_t>(verifier, VT_GROUP_ID, 8) &&
+           VerifyField<int64_t>(verifier, VT_TERM, 8) &&
+           VerifyField<int64_t>(verifier, VT_INDEX, 8) &&
+           VerifyField<uint8_t>(verifier, VT_RESULT_TYPE, 1) &&
+           VerifyOffset(verifier, VT_RESULT) &&
+           VerifyAppendEntryResult(verifier, result(), result_type()) &&
+           verifier.EndTable();
+  }
+  AppendEntryReplyT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(AppendEntryReplyT *_o, const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static ::flatbuffers::Offset<AppendEntryReply> Pack(::flatbuffers::FlatBufferBuilder &_fbb, const AppendEntryReplyT* _o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+template<> inline const karma_rpc::AppendEntryAccepted *AppendEntryReply::result_as<karma_rpc::AppendEntryAccepted>() const {
+  return result_as_AppendEntryAccepted();
+}
+
+template<> inline const karma_rpc::AppendEntryRejected *AppendEntryReply::result_as<karma_rpc::AppendEntryRejected>() const {
+  return result_as_AppendEntryRejected();
+}
+
+struct AppendEntryReplyBuilder {
+  typedef AppendEntryReply Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_from_id(int64_t from_id) {
+    fbb_.AddElement<int64_t>(AppendEntryReply::VT_FROM_ID, from_id, -1LL);
+  }
+  void add_group_id(int64_t group_id) {
+    fbb_.AddElement<int64_t>(AppendEntryReply::VT_GROUP_ID, group_id, -1LL);
+  }
+  void add_term(int64_t term) {
+    fbb_.AddElement<int64_t>(AppendEntryReply::VT_TERM, term, -1LL);
+  }
+  void add_index(int64_t index) {
+    fbb_.AddElement<int64_t>(AppendEntryReply::VT_INDEX, index, -1LL);
+  }
+  void add_result_type(karma_rpc::AppendEntryResult result_type) {
+    fbb_.AddElement<uint8_t>(AppendEntryReply::VT_RESULT_TYPE, static_cast<uint8_t>(result_type), 0);
+  }
+  void add_result(::flatbuffers::Offset<void> result) {
+    fbb_.AddOffset(AppendEntryReply::VT_RESULT, result);
+  }
+  explicit AppendEntryReplyBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<AppendEntryReply> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<AppendEntryReply>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<AppendEntryReply> CreateAppendEntryReply(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    int64_t from_id = -1LL,
+    int64_t group_id = -1LL,
+    int64_t term = -1LL,
+    int64_t index = -1LL,
+    karma_rpc::AppendEntryResult result_type = karma_rpc::AppendEntryResult_NONE,
+    ::flatbuffers::Offset<void> result = 0) {
+  AppendEntryReplyBuilder builder_(_fbb);
+  builder_.add_index(index);
+  builder_.add_term(term);
+  builder_.add_group_id(group_id);
+  builder_.add_from_id(from_id);
+  builder_.add_result(result);
+  builder_.add_result_type(result_type);
+  return builder_.Finish();
+}
+
+::flatbuffers::Offset<AppendEntryReply> CreateAppendEntryReply(::flatbuffers::FlatBufferBuilder &_fbb, const AppendEntryReplyT *_o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+struct PingPongRequestT : public ::flatbuffers::NativeTable {
+  typedef PingPongRequest TableType;
+  int64_t from_id = -1LL;
+  int64_t group_id = -1LL;
+  std::string msg{};
+};
+
+struct PingPongRequest FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef PingPongRequestT NativeTableType;
+  typedef PingPongRequestBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_FROM_ID = 4,
+    VT_GROUP_ID = 6,
+    VT_MSG = 8
+  };
+  int64_t from_id() const {
+    return GetField<int64_t>(VT_FROM_ID, -1LL);
+  }
+  int64_t group_id() const {
+    return GetField<int64_t>(VT_GROUP_ID, -1LL);
+  }
+  const ::flatbuffers::String *msg() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_MSG);
+  }
+  bool Verify(::flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<int64_t>(verifier, VT_FROM_ID, 8) &&
+           VerifyField<int64_t>(verifier, VT_GROUP_ID, 8) &&
+           VerifyOffset(verifier, VT_MSG) &&
+           verifier.VerifyString(msg()) &&
+           verifier.EndTable();
+  }
+  PingPongRequestT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(PingPongRequestT *_o, const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static ::flatbuffers::Offset<PingPongRequest> Pack(::flatbuffers::FlatBufferBuilder &_fbb, const PingPongRequestT* _o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct PingPongRequestBuilder {
+  typedef PingPongRequest Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_from_id(int64_t from_id) {
+    fbb_.AddElement<int64_t>(PingPongRequest::VT_FROM_ID, from_id, -1LL);
+  }
+  void add_group_id(int64_t group_id) {
+    fbb_.AddElement<int64_t>(PingPongRequest::VT_GROUP_ID, group_id, -1LL);
+  }
+  void add_msg(::flatbuffers::Offset<::flatbuffers::String> msg) {
+    fbb_.AddOffset(PingPongRequest::VT_MSG, msg);
+  }
+  explicit PingPongRequestBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<PingPongRequest> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<PingPongRequest>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<PingPongRequest> CreatePingPongRequest(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    int64_t from_id = -1LL,
+    int64_t group_id = -1LL,
+    ::flatbuffers::Offset<::flatbuffers::String> msg = 0) {
+  PingPongRequestBuilder builder_(_fbb);
+  builder_.add_group_id(group_id);
+  builder_.add_from_id(from_id);
+  builder_.add_msg(msg);
+  return builder_.Finish();
+}
+
+inline ::flatbuffers::Offset<PingPongRequest> CreatePingPongRequestDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    int64_t from_id = -1LL,
+    int64_t group_id = -1LL,
+    const char *msg = nullptr) {
+  auto msg__ = msg ? _fbb.CreateString(msg) : 0;
+  return karma_rpc::CreatePingPongRequest(
+      _fbb,
+      from_id,
+      group_id,
+      msg__);
+}
+
+::flatbuffers::Offset<PingPongRequest> CreatePingPongRequest(::flatbuffers::FlatBufferBuilder &_fbb, const PingPongRequestT *_o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+struct PingPongReplyT : public ::flatbuffers::NativeTable {
+  typedef PingPongReply TableType;
+  int64_t from_id = -1LL;
+  int64_t group_id = -1LL;
+  std::string msg{};
+};
+
+struct PingPongReply FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef PingPongReplyT NativeTableType;
+  typedef PingPongReplyBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_FROM_ID = 4,
+    VT_GROUP_ID = 6,
+    VT_MSG = 8
+  };
+  int64_t from_id() const {
+    return GetField<int64_t>(VT_FROM_ID, -1LL);
+  }
+  int64_t group_id() const {
+    return GetField<int64_t>(VT_GROUP_ID, -1LL);
+  }
+  const ::flatbuffers::String *msg() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_MSG);
+  }
+  bool Verify(::flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<int64_t>(verifier, VT_FROM_ID, 8) &&
+           VerifyField<int64_t>(verifier, VT_GROUP_ID, 8) &&
+           VerifyOffset(verifier, VT_MSG) &&
+           verifier.VerifyString(msg()) &&
+           verifier.EndTable();
+  }
+  PingPongReplyT *UnPack(const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(PingPongReplyT *_o, const ::flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static ::flatbuffers::Offset<PingPongReply> Pack(::flatbuffers::FlatBufferBuilder &_fbb, const PingPongReplyT* _o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct PingPongReplyBuilder {
+  typedef PingPongReply Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_from_id(int64_t from_id) {
+    fbb_.AddElement<int64_t>(PingPongReply::VT_FROM_ID, from_id, -1LL);
+  }
+  void add_group_id(int64_t group_id) {
+    fbb_.AddElement<int64_t>(PingPongReply::VT_GROUP_ID, group_id, -1LL);
+  }
+  void add_msg(::flatbuffers::Offset<::flatbuffers::String> msg) {
+    fbb_.AddOffset(PingPongReply::VT_MSG, msg);
+  }
+  explicit PingPongReplyBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<PingPongReply> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<PingPongReply>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<PingPongReply> CreatePingPongReply(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    int64_t from_id = -1LL,
+    int64_t group_id = -1LL,
+    ::flatbuffers::Offset<::flatbuffers::String> msg = 0) {
+  PingPongReplyBuilder builder_(_fbb);
+  builder_.add_group_id(group_id);
+  builder_.add_from_id(from_id);
+  builder_.add_msg(msg);
+  return builder_.Finish();
+}
+
+inline ::flatbuffers::Offset<PingPongReply> CreatePingPongReplyDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    int64_t from_id = -1LL,
+    int64_t group_id = -1LL,
+    const char *msg = nullptr) {
+  auto msg__ = msg ? _fbb.CreateString(msg) : 0;
+  return karma_rpc::CreatePingPongReply(
+      _fbb,
+      from_id,
+      group_id,
+      msg__);
+}
+
+::flatbuffers::Offset<PingPongReply> CreatePingPongReply(::flatbuffers::FlatBufferBuilder &_fbb, const PingPongReplyT *_o, const ::flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
+inline AppendEntryRequestT::AppendEntryRequestT(const AppendEntryRequestT &o)
+      : from_id(o.from_id),
+        group_id(o.group_id),
+        current_term(o.current_term),
+        leader_id(o.leader_id),
+        prev_log_idx(o.prev_log_idx),
+        prev_log_term(o.prev_log_term),
+        leader_commit_idx(o.leader_commit_idx) {
+  entries.reserve(o.entries.size());
+  for (const auto &entries_ : o.entries) { entries.emplace_back((entries_) ? new karma_rpc::LogEntryT(*entries_) : nullptr); }
+}
+
+inline AppendEntryRequestT &AppendEntryRequestT::operator=(AppendEntryRequestT o) FLATBUFFERS_NOEXCEPT {
+  std::swap(from_id, o.from_id);
+  std::swap(group_id, o.group_id);
+  std::swap(current_term, o.current_term);
+  std::swap(leader_id, o.leader_id);
+  std::swap(prev_log_idx, o.prev_log_idx);
+  std::swap(prev_log_term, o.prev_log_term);
+  std::swap(leader_commit_idx, o.leader_commit_idx);
+  std::swap(entries, o.entries);
+  return *this;
+}
+
+inline AppendEntryRequestT *AppendEntryRequest::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
+  auto _o = std::unique_ptr<AppendEntryRequestT>(new AppendEntryRequestT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void AppendEntryRequest::UnPackTo(AppendEntryRequestT *_o, const ::flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = from_id(); _o->from_id = _e; }
+  { auto _e = group_id(); _o->group_id = _e; }
+  { auto _e = current_term(); _o->current_term = _e; }
+  { auto _e = leader_id(); _o->leader_id = _e; }
+  { auto _e = prev_log_idx(); _o->prev_log_idx = _e; }
+  { auto _e = prev_log_term(); _o->prev_log_term = _e; }
+  { auto _e = leader_commit_idx(); _o->leader_commit_idx = _e; }
+  { auto _e = entries(); if (_e) { _o->entries.resize(_e->size()); for (::flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { if(_o->entries[_i]) { _e->Get(_i)->UnPackTo(_o->entries[_i].get(), _resolver); } else { _o->entries[_i] = std::unique_ptr<karma_rpc::LogEntryT>(_e->Get(_i)->UnPack(_resolver)); }; } } else { _o->entries.resize(0); } }
+}
+
+inline ::flatbuffers::Offset<AppendEntryRequest> AppendEntryRequest::Pack(::flatbuffers::FlatBufferBuilder &_fbb, const AppendEntryRequestT* _o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  return CreateAppendEntryRequest(_fbb, _o, _rehasher);
+}
+
+inline ::flatbuffers::Offset<AppendEntryRequest> CreateAppendEntryRequest(::flatbuffers::FlatBufferBuilder &_fbb, const AppendEntryRequestT *_o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { ::flatbuffers::FlatBufferBuilder *__fbb; const AppendEntryRequestT* __o; const ::flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _from_id = _o->from_id;
+  auto _group_id = _o->group_id;
+  auto _current_term = _o->current_term;
+  auto _leader_id = _o->leader_id;
+  auto _prev_log_idx = _o->prev_log_idx;
+  auto _prev_log_term = _o->prev_log_term;
+  auto _leader_commit_idx = _o->leader_commit_idx;
+  auto _entries = _o->entries.size() ? _fbb.CreateVector<::flatbuffers::Offset<karma_rpc::LogEntry>> (_o->entries.size(), [](size_t i, _VectorArgs *__va) { return CreateLogEntry(*__va->__fbb, __va->__o->entries[i].get(), __va->__rehasher); }, &_va ) : 0;
+  return karma_rpc::CreateAppendEntryRequest(
+      _fbb,
+      _from_id,
+      _group_id,
+      _current_term,
+      _leader_id,
+      _prev_log_idx,
+      _prev_log_term,
+      _leader_commit_idx,
+      _entries);
+}
+
+inline LogEntryT *LogEntry::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
+  auto _o = std::unique_ptr<LogEntryT>(new LogEntryT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void LogEntry::UnPackTo(LogEntryT *_o, const ::flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = term(); _o->term = _e; }
+  { auto _e = index(); _o->index = _e; }
+  { auto _e = command(); if (_e) _o->command = _e->str(); }
+}
+
+inline ::flatbuffers::Offset<LogEntry> LogEntry::Pack(::flatbuffers::FlatBufferBuilder &_fbb, const LogEntryT* _o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  return CreateLogEntry(_fbb, _o, _rehasher);
+}
+
+inline ::flatbuffers::Offset<LogEntry> CreateLogEntry(::flatbuffers::FlatBufferBuilder &_fbb, const LogEntryT *_o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { ::flatbuffers::FlatBufferBuilder *__fbb; const LogEntryT* __o; const ::flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _term = _o->term;
+  auto _index = _o->index;
+  auto _command = _o->command.empty() ? 0 : _fbb.CreateString(_o->command);
+  return karma_rpc::CreateLogEntry(
+      _fbb,
+      _term,
+      _index,
+      _command);
+}
+
+inline AppendEntryAcceptedT *AppendEntryAccepted::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
+  auto _o = std::unique_ptr<AppendEntryAcceptedT>(new AppendEntryAcceptedT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void AppendEntryAccepted::UnPackTo(AppendEntryAcceptedT *_o, const ::flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = non_matching_idx(); _o->non_matching_idx = _e; }
+  { auto _e = last_idx(); _o->last_idx = _e; }
+}
+
+inline ::flatbuffers::Offset<AppendEntryAccepted> AppendEntryAccepted::Pack(::flatbuffers::FlatBufferBuilder &_fbb, const AppendEntryAcceptedT* _o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  return CreateAppendEntryAccepted(_fbb, _o, _rehasher);
+}
+
+inline ::flatbuffers::Offset<AppendEntryAccepted> CreateAppendEntryAccepted(::flatbuffers::FlatBufferBuilder &_fbb, const AppendEntryAcceptedT *_o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { ::flatbuffers::FlatBufferBuilder *__fbb; const AppendEntryAcceptedT* __o; const ::flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _non_matching_idx = _o->non_matching_idx;
+  auto _last_idx = _o->last_idx;
+  return karma_rpc::CreateAppendEntryAccepted(
+      _fbb,
+      _non_matching_idx,
+      _last_idx);
+}
+
+inline AppendEntryRejectedT *AppendEntryRejected::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
+  auto _o = std::unique_ptr<AppendEntryRejectedT>(new AppendEntryRejectedT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void AppendEntryRejected::UnPackTo(AppendEntryRejectedT *_o, const ::flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = last_new_idx(); _o->last_new_idx = _e; }
+}
+
+inline ::flatbuffers::Offset<AppendEntryRejected> AppendEntryRejected::Pack(::flatbuffers::FlatBufferBuilder &_fbb, const AppendEntryRejectedT* _o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  return CreateAppendEntryRejected(_fbb, _o, _rehasher);
+}
+
+inline ::flatbuffers::Offset<AppendEntryRejected> CreateAppendEntryRejected(::flatbuffers::FlatBufferBuilder &_fbb, const AppendEntryRejectedT *_o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { ::flatbuffers::FlatBufferBuilder *__fbb; const AppendEntryRejectedT* __o; const ::flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _last_new_idx = _o->last_new_idx;
+  return karma_rpc::CreateAppendEntryRejected(
+      _fbb,
+      _last_new_idx);
+}
+
+inline AppendEntryReplyT *AppendEntryReply::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
+  auto _o = std::unique_ptr<AppendEntryReplyT>(new AppendEntryReplyT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void AppendEntryReply::UnPackTo(AppendEntryReplyT *_o, const ::flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = from_id(); _o->from_id = _e; }
+  { auto _e = group_id(); _o->group_id = _e; }
+  { auto _e = term(); _o->term = _e; }
+  { auto _e = index(); _o->index = _e; }
+  { auto _e = result_type(); _o->result.type = _e; }
+  { auto _e = result(); if (_e) _o->result.value = karma_rpc::AppendEntryResultUnion::UnPack(_e, result_type(), _resolver); }
+}
+
+inline ::flatbuffers::Offset<AppendEntryReply> AppendEntryReply::Pack(::flatbuffers::FlatBufferBuilder &_fbb, const AppendEntryReplyT* _o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  return CreateAppendEntryReply(_fbb, _o, _rehasher);
+}
+
+inline ::flatbuffers::Offset<AppendEntryReply> CreateAppendEntryReply(::flatbuffers::FlatBufferBuilder &_fbb, const AppendEntryReplyT *_o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { ::flatbuffers::FlatBufferBuilder *__fbb; const AppendEntryReplyT* __o; const ::flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _from_id = _o->from_id;
+  auto _group_id = _o->group_id;
+  auto _term = _o->term;
+  auto _index = _o->index;
+  auto _result_type = _o->result.type;
+  auto _result = _o->result.Pack(_fbb);
+  return karma_rpc::CreateAppendEntryReply(
+      _fbb,
+      _from_id,
+      _group_id,
+      _term,
+      _index,
+      _result_type,
+      _result);
+}
+
+inline PingPongRequestT *PingPongRequest::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
+  auto _o = std::unique_ptr<PingPongRequestT>(new PingPongRequestT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void PingPongRequest::UnPackTo(PingPongRequestT *_o, const ::flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = from_id(); _o->from_id = _e; }
+  { auto _e = group_id(); _o->group_id = _e; }
+  { auto _e = msg(); if (_e) _o->msg = _e->str(); }
+}
+
+inline ::flatbuffers::Offset<PingPongRequest> PingPongRequest::Pack(::flatbuffers::FlatBufferBuilder &_fbb, const PingPongRequestT* _o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  return CreatePingPongRequest(_fbb, _o, _rehasher);
+}
+
+inline ::flatbuffers::Offset<PingPongRequest> CreatePingPongRequest(::flatbuffers::FlatBufferBuilder &_fbb, const PingPongRequestT *_o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { ::flatbuffers::FlatBufferBuilder *__fbb; const PingPongRequestT* __o; const ::flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _from_id = _o->from_id;
+  auto _group_id = _o->group_id;
+  auto _msg = _o->msg.empty() ? 0 : _fbb.CreateString(_o->msg);
+  return karma_rpc::CreatePingPongRequest(
+      _fbb,
+      _from_id,
+      _group_id,
+      _msg);
+}
+
+inline PingPongReplyT *PingPongReply::UnPack(const ::flatbuffers::resolver_function_t *_resolver) const {
+  auto _o = std::unique_ptr<PingPongReplyT>(new PingPongReplyT());
+  UnPackTo(_o.get(), _resolver);
+  return _o.release();
+}
+
+inline void PingPongReply::UnPackTo(PingPongReplyT *_o, const ::flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = from_id(); _o->from_id = _e; }
+  { auto _e = group_id(); _o->group_id = _e; }
+  { auto _e = msg(); if (_e) _o->msg = _e->str(); }
+}
+
+inline ::flatbuffers::Offset<PingPongReply> PingPongReply::Pack(::flatbuffers::FlatBufferBuilder &_fbb, const PingPongReplyT* _o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  return CreatePingPongReply(_fbb, _o, _rehasher);
+}
+
+inline ::flatbuffers::Offset<PingPongReply> CreatePingPongReply(::flatbuffers::FlatBufferBuilder &_fbb, const PingPongReplyT *_o, const ::flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { ::flatbuffers::FlatBufferBuilder *__fbb; const PingPongReplyT* __o; const ::flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _from_id = _o->from_id;
+  auto _group_id = _o->group_id;
+  auto _msg = _o->msg.empty() ? 0 : _fbb.CreateString(_o->msg);
+  return karma_rpc::CreatePingPongReply(
+      _fbb,
+      _from_id,
+      _group_id,
+      _msg);
+}
+
+inline bool VerifyAppendEntryResult(::flatbuffers::Verifier &verifier, const void *obj, AppendEntryResult type) {
+  switch (type) {
+    case AppendEntryResult_NONE: {
+      return true;
+    }
+    case AppendEntryResult_AppendEntryAccepted: {
+      auto ptr = reinterpret_cast<const karma_rpc::AppendEntryAccepted *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case AppendEntryResult_AppendEntryRejected: {
+      auto ptr = reinterpret_cast<const karma_rpc::AppendEntryRejected *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    default: return true;
+  }
+}
+
+inline bool VerifyAppendEntryResultVector(::flatbuffers::Verifier &verifier, const ::flatbuffers::Vector<::flatbuffers::Offset<void>> *values, const ::flatbuffers::Vector<uint8_t> *types) {
+  if (!values || !types) return !values && !types;
+  if (values->size() != types->size()) return false;
+  for (::flatbuffers::uoffset_t i = 0; i < values->size(); ++i) {
+    if (!VerifyAppendEntryResult(
+        verifier,  values->Get(i), types->GetEnum<AppendEntryResult>(i))) {
+      return false;
+    }
+  }
+  return true;
+}
+
+inline void *AppendEntryResultUnion::UnPack(const void *obj, AppendEntryResult type, const ::flatbuffers::resolver_function_t *resolver) {
+  (void)resolver;
+  switch (type) {
+    case AppendEntryResult_AppendEntryAccepted: {
+      auto ptr = reinterpret_cast<const karma_rpc::AppendEntryAccepted *>(obj);
+      return ptr->UnPack(resolver);
+    }
+    case AppendEntryResult_AppendEntryRejected: {
+      auto ptr = reinterpret_cast<const karma_rpc::AppendEntryRejected *>(obj);
+      return ptr->UnPack(resolver);
+    }
+    default: return nullptr;
+  }
+}
+
+inline ::flatbuffers::Offset<void> AppendEntryResultUnion::Pack(::flatbuffers::FlatBufferBuilder &_fbb, const ::flatbuffers::rehasher_function_t *_rehasher) const {
+  (void)_rehasher;
+  switch (type) {
+    case AppendEntryResult_AppendEntryAccepted: {
+      auto ptr = reinterpret_cast<const karma_rpc::AppendEntryAcceptedT *>(value);
+      return CreateAppendEntryAccepted(_fbb, ptr, _rehasher).Union();
+    }
+    case AppendEntryResult_AppendEntryRejected: {
+      auto ptr = reinterpret_cast<const karma_rpc::AppendEntryRejectedT *>(value);
+      return CreateAppendEntryRejected(_fbb, ptr, _rehasher).Union();
+    }
+    default: return 0;
+  }
+}
+
+inline AppendEntryResultUnion::AppendEntryResultUnion(const AppendEntryResultUnion &u) : type(u.type), value(nullptr) {
+  switch (type) {
+    case AppendEntryResult_AppendEntryAccepted: {
+      value = new karma_rpc::AppendEntryAcceptedT(*reinterpret_cast<karma_rpc::AppendEntryAcceptedT *>(u.value));
+      break;
+    }
+    case AppendEntryResult_AppendEntryRejected: {
+      value = new karma_rpc::AppendEntryRejectedT(*reinterpret_cast<karma_rpc::AppendEntryRejectedT *>(u.value));
+      break;
+    }
+    default:
+      break;
+  }
+}
+
+inline void AppendEntryResultUnion::Reset() {
+  switch (type) {
+    case AppendEntryResult_AppendEntryAccepted: {
+      auto ptr = reinterpret_cast<karma_rpc::AppendEntryAcceptedT *>(value);
+      delete ptr;
+      break;
+    }
+    case AppendEntryResult_AppendEntryRejected: {
+      auto ptr = reinterpret_cast<karma_rpc::AppendEntryRejectedT *>(value);
+      delete ptr;
+      break;
+    }
+    default: break;
+  }
+  value = nullptr;
+  type = AppendEntryResult_NONE;
 }
 
 }  // namespace karma_rpc

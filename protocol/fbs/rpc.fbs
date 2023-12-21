@@ -2,6 +2,61 @@ namespace karma_rpc;
 
 enum OperationCode : short {
     UNKNOW = 0x0000,
-    PING = 0x0001,
+    PING_PONG = 0x0001,
     HEARTBEAT = 0x0002,
+    APPEND_ENTRY = 0x0003,
+    APPEND_ENTRY_REPLY = 0x0004,
+}
+
+
+table AppendEntryRequest {
+    from_id: int64 = -1 (id: 0);
+    group_id: int64 = -1 (id: 1);
+    // 
+    current_term: int64 = -1 (id: 2);
+    leader_id: int64 = -1 (id: 3);
+    prev_log_idx: int64 = -1 (id: 4);
+    prev_log_term: int64 = -1 (id: 5);
+    leader_commit_idx: int64 = -1 (id: 6);
+    // 
+    entries: [LogEntry] (id: 7); 
+}
+
+table LogEntry {
+    term: int64 = -1 (id: 0);
+    index: int64 = -1 (id: 1);
+    command: string(id: 2);
+}
+table AppendEntryAccepted {
+    non_matching_idx: int64 = -1 (id: 0);
+    last_idx: int64 = -1 (id: 1);
+}
+table AppendEntryRejected {
+    last_new_idx: int64 = -1 (id: 0);
+}
+union AppendEntryResult {
+    AppendEntryAccepted,
+    AppendEntryRejected
+}
+table AppendEntryReply {
+    from_id: int64 = -1;
+    group_id: int64 = -1;
+    // 
+    term: int64 = -1;
+    index: int64 = -1;
+    result: AppendEntryResult;
+}
+
+table PingPongRequest {
+    from_id: int64 = -1;
+    group_id: int64 = -1;
+    //
+    msg: string;
+}
+
+table PingPongReply {
+    from_id: int64 = -1;
+    group_id: int64 = -1;
+    //
+    msg: string;
 }

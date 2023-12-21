@@ -2,6 +2,13 @@
 #include "karma-raft/common.h"
 
 namespace raft {
+struct ping_pong_request {
+    std::string m_msg;
+};
+struct ping_pong_reply {
+    std::string m_msg;
+};
+
 struct append_request {
     // The leader's term.
     term_t current_term;
@@ -55,6 +62,8 @@ struct vote_request {
     term_t last_log_term;
     // True if this is prevote request
     bool is_prevote;
+
+    bool force;
 };
 struct timeout_now {
     // Current term on a leader
@@ -65,9 +74,43 @@ struct vote_reply {
     term_t current_term;
     // True means the candidate received a vote.
     bool vote_granted;
+    // True if it is a reply to prevote request
+    bool is_prevote;
 };
 
+struct install_snapshot {
+    // Current term on a leader
+    term_t current_term;
+    // A snapshot to install
+    snapshot_descriptor snp;
+};
 
+struct snapshot_reply {
+    // Follower current term
+    term_t current_term;
+    // True if the snapshot was applied, false otherwise.
+    bool success;
+};
+struct read_quorum {
+    // The leader's term.
+    term_t current_term;
+    // The leader's commit_idx. Has the same semantics
+    // as in append_entries.
+    index_t leader_commit_idx;
+    // The id of the read barrier. Only valid within this term.
+    read_id id;
+};
+
+struct read_quorum_reply {
+    // The leader's term, as sent in the read_quorum request.
+    // read_id is only valid (and unique) within a given term.
+    term_t current_term;
+    // Piggy-back follower's commit_idx, for the same purposes
+    // as in append_reply::commit_idx
+    index_t commit_idx;
+    // Copy of the id from a read_quorum request
+    read_id id;
+};
 
 using rpc_message = std::variant<append_request,
       append_reply,

@@ -5,5 +5,5 @@ message(STATUS "TRANSPORT_HEADERS: ${TRANSPORT_HEADERS}")
 message(STATUS "TRANSPORT_SRCS: ${TRANSPORT_SRCS}")
 
 add_library(${KARMA_TRANSPORT} ${TRANSPORT_HEADERS} ${TRANSPORT_SRCS})
-target_include_directories(${KARMA_TRANSPORT} PRIVATE . ${CMAKE_SOURCE_DIR})
-target_link_libraries(${KARMA_TRANSPORT})
+target_include_directories(${KARMA_TRANSPORT} PRIVATE . ${CMAKE_SOURCE_DIR} ${CO_CONTEXT_DIR})
+target_link_libraries(${KARMA_TRANSPORT} ${CO_CONTEXT})

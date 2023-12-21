@@ -1,0 +1,3 @@
+采用bitcask的结构
+
+内存索引使用radix tree

@@ -33,7 +33,7 @@ class config {
 public:
     config() {}
     std::string addr = "127.0.0.1";
-    uint8_t port = 8888;
+    uint16_t port = 8888;
     uint8_t core_num = 8;
     uint8_t raft_gourp_count = 1;
 };
