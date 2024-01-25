@@ -1,4 +1,5 @@
 #include "co_context/net/socket.hpp"
+#include "co_context/task.hpp"
 #include "karma-client/client.h"
 #include "karma-raft/rpc_message.h"
 #include "karma-service/session.h"
@@ -53,14 +54,25 @@ namespace test {
                 ts->process();
             }
         }
-        BOOST_AUTO_TEST_CASE(Test01) {
-            co_context::io_context ctx1, ctx2;
-            ctx1.co_spawn(server(8889));
-            ctx2.co_spawn(client());
-            ctx1.start();
-            ctx2.start();
-            ctx2.join();
+        co_context::task<> func() {
+            auto ctx = std::make_shared<co_context::task<int>>();
+            std::cout << "!" << std::endl;
+            co_await *ctx;
+            std::cout << "2" << std::endl;
         }
-
+        BOOST_AUTO_TEST_CASE(Test01) {
+            // co_context::io_context ctx1, ctx2;
+            // ctx1.co_spawn(server(8889));
+            // ctx2.co_spawn(client());
+            // ctx1.start();
+            // ctx2.start();
+            // ctx2.join();
+        }
+        BOOST_AUTO_TEST_CASE(Test02) {
+            co_context::io_context ctx;
+            ctx.co_spawn(func());
+            ctx.start();
+            ctx.join();
+        }
     BOOST_AUTO_TEST_SUITE_END()
 } // namespace test

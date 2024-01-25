@@ -25,5 +25,27 @@ struct trivial_failure_detector: public raft::failure_detector {
 extern struct trivial_failure_detector trivial_failure_detector;
 extern raft::fsm_config fsm_cfg;
 extern raft::fsm_config fsm_cfg_pre;
-// fsm_debug create_follower(raft::server_id id, raft::log log,
-//         raft::failure_detector& fd = trivial_failure_detector);
+
+class fsm_debug : public raft::fsm {
+public:
+    using raft::fsm::fsm;
+    void become_follower(raft::server_id leader) {
+        raft::fsm::become_follower(leader);
+    }
+    const raft::follower_progress& get_progress(raft::server_id id) {
+        raft::follower_progress* progress = leader_state().m_tracker.find(id);
+        return *progress;
+    }
+    raft::log& get_log() {
+        // return raft::fsm::get_log();
+    }
+
+    bool leadership_transfer_active() const {
+        assert(is_leader());
+        // return bool(leader_state().stepdown);
+    }
+};
+
+inline fsm_debug create_follower(raft::server_id id, raft::log log, raft::failure_detector& fd = trivial_failure_detector) {
+    return fsm_debug(id, raft::term_t{}, raft::server_id{}, std::move(log), fd, fsm_cfg);
+}

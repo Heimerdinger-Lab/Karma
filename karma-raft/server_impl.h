@@ -11,7 +11,7 @@ public:
     void append_entries_reply(server_id from, append_reply reply) override;
     void request_vote(server_id from, vote_request vote_request) override;
     void request_vote_reply(server_id from, vote_reply vote_reply) override;
-    void timeout_now_request(server_id from,  term_t current_term) override;
+    void timeout_now_request(server_id from, timeout_now timeout_now) override;
 
     // implement server
     co_context::task<> start() override;

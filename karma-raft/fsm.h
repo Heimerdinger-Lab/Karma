@@ -61,7 +61,7 @@ struct leader {
 public:
     leader(const class fsm& fsm_) : m_fsm(fsm_) {}
     leader(leader&&) = default;
-    ~leader();
+    ~leader() = default;
 };
 struct fsm_config {
     // max size of appended entries in bytes
@@ -119,6 +119,7 @@ private:
     std::vector<std::pair<server_id, rpc_message>> m_messages;
     co_context::mutex m_events_mtx;
     co_context::condition_variable m_events;
+public:
     void maybe_commit();
     bool is_past_election_timeout() const {
         return election_elapsed() >= m_randomized_election_timeout;
@@ -179,7 +180,10 @@ public:
     explicit fsm(server_id id, term_t current_term, server_id voted_for, log log,
             index_t commit_idx, failure_detector& failure_detector, fsm_config conf);
 
-    explicit fsm(server_id id, term_t current_term, server_id voted_for, log log, failure_detector& failure_detector, fsm_config conf);
+    explicit fsm(server_id id, term_t current_term, server_id voted_for, log log, failure_detector& failure_detector, fsm_config conf) 
+        : fsm(id, current_term, voted_for, std::move(log), index_t{0}, failure_detector, conf){
+
+    }
 
     bool is_leader() const {
         return std::holds_alternative<leader>(m_state);

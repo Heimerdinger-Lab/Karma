@@ -112,8 +112,21 @@ struct read_quorum_reply {
     read_id id;
 };
 
+// using rpc_message = std::variant<append_request,
+//       append_reply,
+//       vote_request,
+//       vote_reply,
+//       snapshot_reply>;     
+
+
 using rpc_message = std::variant<append_request,
       append_reply,
       vote_request,
-      vote_reply>;
+      vote_reply,
+      install_snapshot,
+      snapshot_reply,
+      timeout_now,
+      read_quorum,
+      read_quorum_reply>;
+
 }

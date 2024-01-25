@@ -26,7 +26,7 @@ public:
     virtual void send_append_entries_reply(server_id id, const append_reply& reply) = 0;
     virtual void send_vote_request(server_id id, const vote_request& vote_request) = 0;
     virtual void send_vote_reply(server_id id, const vote_reply& vote_reply) = 0;
-    virtual void send_timeout_now(server_id, const term_t& current_term) = 0;
+    virtual void send_timeout_now(server_id, const timeout_now& timeout_now) = 0;
     virtual co_context::task<> abort() = 0;
 private:
     friend rpc_server;
@@ -39,7 +39,7 @@ public:
     virtual void append_entries_reply(server_id from, append_reply reply) = 0;
     virtual void request_vote(server_id from, vote_request vote_request) = 0;
     virtual void request_vote_reply(server_id from, vote_reply vote_reply) = 0;
-    virtual void timeout_now_request(server_id from, term_t current_term) = 0;
+    virtual void timeout_now_request(server_id from, timeout_now timeout_now) = 0;
     void set_rpc_server(class rpc *rpc) { rpc->m_server = this; }
 };
 

@@ -32,9 +32,25 @@ public:
         m_match_idx = std::max(idx, m_match_idx);
         m_next_idx = std::max(idx + index_t(1), m_next_idx);
     }
-    void become_probe();
-    void become_pipeline();
-    void become_snapshot(index_t snp_idx);
+    void become_probe() {
+        state = state::PROBE;
+        probe_sent = false;
+    }
+    void become_pipeline() {
+        if (state != state::PIPELINE) {
+            // If a previous request was accepted, move to "pipeline" state
+            // since we now know the follower's log state.
+            state = state::PIPELINE;
+            in_flight = 0;
+        }
+    }
+    void become_snapshot(index_t snp_idx) {
+        state = state::SNAPSHOT;
+        // If snapshot transfer succeeds, start replicating from the
+        // next index, otherwise we will learn the follower's index
+        // again by sending a probe request.
+        m_next_idx = snp_idx + index_t{1};
+    }
 
     follower_progress(server_id id, index_t next_idx) 
         : m_server_id(id)
