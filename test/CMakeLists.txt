@@ -19,3 +19,12 @@ if (KARMA_CLIENT_TESTS)
     enable_testing()
     add_subdirectory(${TEST_KARMA_CLIENT})
 endif()
+
+
+
+if (KARMA_STORE_TESTS) 
+    enable_testing()
+    add_subdirectory(${TEST_KARMA_STORE})
+endif()
+
+# add_subdirectory(test-sivir)
