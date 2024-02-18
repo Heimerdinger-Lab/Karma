@@ -12,7 +12,7 @@ class server_impl : public rpc_server, public server {
 public:
     explicit server_impl(server_id uuid, std::unique_ptr<rpc> rpc,
         std::unique_ptr<state_machine> state_machine, std::unique_ptr<persistence> persistence,
-        std::shared_ptr<failure_detector> failure_detector, server::configuration config);
+        std::shared_ptr<failure_detector> failure_detector, server::configuration config) {}
 
     server_impl(server_impl&&) = delete;
 
@@ -28,34 +28,34 @@ public:
     void read_quorum_reply(server_id from, struct read_quorum_reply read_quorum_reply) override;
     co_context::task<read_barrier_reply> execute_read_barrier(server_id) override;
     co_context::task<add_entry_reply> execute_add_entry(server_id from, command cmd) override;
-    // co_context::task<snapshot_reply> apply_snapshot(server_id from, install_snapshot snp) override;
-    // co_context::task<read_barrier_reply> execute_read_barrier(server_id from);
+    co_context::task<snapshot_reply> apply_snapshot(server_id from, install_snapshot snp) override;
+    co_context::task<read_barrier_reply> execute_read_barrier(server_id from);
     // implement server
     // 对外
     // add_entry就是给raft group添加command
     // read_barrier就是等待状态机更新完
     // 直接从状态机中读值即可。
     co_context::task<> add_entry(command command, wait_type type) override;
-    co_context::task<> start() override;
-    co_context::task<> abort(std::string reason) override;
+    // co_context::task<> start() override;
+    // co_context::task<> abort(std::string reason) override;
     co_context::task<> wait_for_entry(entry_id eid, wait_type type);
     co_context::task<> wait_for_apply(index_t idx); 
     co_context::task<read_barrier_reply> get_read_idx(server_id leader);
-    bool is_alive() const override;
-    term_t get_current_term() const override;
+    // bool is_alive() const override;
+    // term_t get_current_term() const override;
     co_context::task<> read_barrier() override;
-    void wait_until_candidate() override;
-    co_context::task<> wait_election_done() override;
-    co_context::task<> wait_log_idx_term(std::pair<index_t, term_t> idx_log) override;
-    std::pair<index_t, term_t> log_last_idx_term() override;
-    void elapse_election() override;
-    bool is_leader() override;
-    raft::server_id current_leader() const override;
-    void tick() override;
-    raft::server_id id() const override;
-    void set_applier_queue_max_size(size_t queue_max_size) override;
+    // void wait_until_candidate() override;
+    // co_context::task<> wait_election_done() override;
+    // co_context::task<> wait_log_idx_term(std::pair<index_t, term_t> idx_log) override;
+    // std::pair<index_t, term_t> log_last_idx_term() override;
+    // void elapse_election() override;
+    // bool is_leader() override;
+    // raft::server_id current_leader() const override;
+    // void tick() override;
+    // raft::server_id id() const override;
+    // void set_applier_queue_max_size(size_t queue_max_size) override;
     co_context::task<entry_id> add_entry_on_leader(command command);
-    size_t max_command_size() const override;
+    // size_t max_command_size() const override;
     co_context::task<> signal_applied();
 private:
     std::unique_ptr<rpc> _rpc;
@@ -447,5 +447,11 @@ void server_impl::send_message(server_id id, Message m) {
             // static_assert(!sizeof(T*), "not all message types are handled");
         }
     }, std::move(m));
+}
+std::unique_ptr<server> create_server(server_id uuid, std::unique_ptr<rpc> rpc,
+    std::unique_ptr<state_machine> state_machine, std::unique_ptr<persistence> persistence,
+    std::shared_ptr<failure_detector> failure_detector, server::configuration config) {
+    // assert(uuid != raft::server_id{0});
+    return std::make_unique<raft::server_impl>(uuid, std::move(rpc), std::move(state_machine), std::move(persistence), failure_detector, config);
 }
 }

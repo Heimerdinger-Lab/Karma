@@ -7,7 +7,6 @@
  */
 #pragma once
 
-#include "co_context/all.hpp"
 #include "co_context/co/condition_variable.hpp"
 #include "co_context/co/mutex.hpp"
 #include "co_context/log/log.hpp"
@@ -252,7 +251,6 @@ private:
     void send_to(server_id to, Message&& m) {
         static_assert(std::is_rvalue_reference<decltype(m)>::value, "must be rvalue");
         _messages.push_back(std::make_pair(to, std::move(m)));
-        // _sm_events.signal();
         _sm_events.notify_all();
     }
 
@@ -321,7 +319,6 @@ private:
         assert(is_leader());
         ++leader_state().last_read_id;
         leader_state().last_read_id_changed = true;
-        // _sm_events.signal();
         _sm_events.notify_all();
         return leader_state().last_read_id;
     }

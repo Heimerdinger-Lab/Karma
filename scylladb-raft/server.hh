@@ -136,7 +136,7 @@ public:
     //     forwarding the corresponding add_entry to the leader.
     // raft::request_aborted
     //     Thrown if abort is requested before the operation finishes.
-    // virtual co_context::task<> set_configuration(config_member_set c_new) = 0;
+    virtual co_context::task<> set_configuration(config_member_set c_new) = 0;
 
     // A simplified wrapper around set_configuration() which adds
     // and deletes servers. Unlike set_configuration(),
@@ -173,11 +173,11 @@ public:
     //     Thrown if the node is not a leader and forwarding is not enabled through enable_forwarding config option.
     // raft::conf_change_in_progress
     //     Thrown if the previous set_configuration/modify_config is not completed.
-    // virtual co_context::task<> modify_config(std::vector<config_member> add,
-    //     std::vector<server_id> del) = 0;
+    virtual co_context::task<> modify_config(std::vector<config_member> add,
+        std::vector<server_id> del) = 0;
 
     // Return the currently known configuration
-    // virtual raft::configuration get_configuration() const = 0;
+    virtual raft::configuration get_configuration() const = 0;
 
     // Load persisted state and start background work that needs
     // to run for this Raft server to function; The object cannot
@@ -223,12 +223,12 @@ public:
     //     Thrown if there is no other voting member.
     // std::logic_error
     //     Thrown if the stepdown process is already in progress.
-    // virtual co_context::task<> stepdown(logical_clock::duration timeout) = 0;
+    virtual co_context::task<> stepdown(logical_clock::duration timeout) = 0;
 
     // Register metrics for this server. Metric are global but their names
     // depend on the server's ID, so it is possible to register metrics
     // of two servers iff their IDs are different.
-    // virtual void register_metrics() = 0;
+    virtual void register_metrics() = 0;
 
     // Returns true if this servers thinks that it is the leader.
     // The information is only relevant for the current_term() only
@@ -246,7 +246,7 @@ public:
     // State changes can be coalesced, so it is not guaranteed that the caller will
     // get notification about each one of them. The state can even be the same after
     // the call as before, but term should be different.
-    // virtual co_context::task<> wait_for_state_change() = 0;
+    virtual co_context::task<> wait_for_state_change() = 0;
 
     // Ad hoc functions for testing
     virtual void wait_until_candidate() = 0;

@@ -22,8 +22,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 add_executable(${KARMA} main.cc)
 target_include_directories(${KARMA} PRIVATE . ${CO_CONTEXT_DIR} ${CMAKE_SOURCE_DIR})
-# target_link_libraries(${KARMA} ${CO_CONTEXT} ${KARMA_CLIENT} ${KARMA_RAFT} ${KARMA_SERVICE} ${KARMA_SESSION} ${KARMA_TRANSPORT} ${KARMA_UTIL}) 
-target_link_libraries(${KARMA} ${CO_CONTEXT} fmt) 
+target_link_libraries(${KARMA} ${CO_CONTEXT} ${KARMA_RAFT} ${KARMA_SERVICE} ${KARMA_UTIL}) 
+# target_link_libraries(${KARMA} ${CO_CONTEXT} fmt) 
 
 
 

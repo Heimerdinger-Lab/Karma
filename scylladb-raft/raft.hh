@@ -16,7 +16,6 @@
 #include <vector>
 #include <unordered_set>
 #include <functional>
-#include <source_location>
 #include <co_context/all.hpp>
 // #include <boost/container/deque.hpp>
 // #include <seastar/core/lowres_clock.hh>
@@ -35,8 +34,6 @@ namespace raft {
 // deserialize in apply() before applying.
 using command = std::string;
 using command_cref = std::reference_wrapper<const command>;
-
-// extern co_context::logger logger;
 
 // This is user provided id for a snapshot
 using snapshot_id = uint64_t;
@@ -714,9 +711,9 @@ public:
     // An endpoint on the leader to change configuration,
     // as requested by a remote follower.
     // If the future resolves successfully, a dummy entry was committed after the configuration change.
-    // virtual co_context::task<add_entry_reply> execute_modify_config(server_id from,
-    //     std::vector<config_member> add,
-    //     std::vector<server_id> del) = 0;
+    virtual co_context::task<add_entry_reply> execute_modify_config(server_id from,
+        std::vector<config_member> add,
+        std::vector<server_id> del) = 0;
 
     // Update RPC implementation with this client as
     // the receiver of RPC input.
