@@ -40,6 +40,7 @@ public:
         m_written = written;
     }
     void read_exact_at(sslice* data, uint32_t size, uint64_t wal_offset) {
+        if (size <= 0) return;
         auto buf = aligned_buf_reader::alloc_read_buf(wal_offset, size);
         // int ret = ::read(m_fd, buf->buf(), buf->capacity());
         int ret = ::pread(m_fd, buf->buf(), buf->capacity(), buf->wal_offset() - m_wal_offset);
@@ -62,7 +63,7 @@ public:
         writer->write_u32(length_type);
         writer->write(slice);
         m_written += 4 + 4 + slice.size();
-        return true;
+        return m_written;
     };
     void append_footer(std::shared_ptr<aligned_buf_writer> writer) {
         if (m_size - m_written < 8) {

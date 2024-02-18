@@ -39,19 +39,19 @@ public:
     /// +---------+-----------+-----------+--- ... ---+
     /// |CRC (4B) | Size (3B) | Type (1B) | Payload   |
     /// +---------+-----------+-----------+--- ... ---+
-    bool scan_record(uint64_t& wal_offset, sslice* record) {
+    bool scan_record(uint64_t& wal_offset, std::string &str) {
         // if (wal_offset)
         for (const auto item: m_segments) {
             if (item->wal_offset() <= wal_offset && item->wal_offset() + item->size() > wal_offset) {
                 int pos = wal_offset - item->wal_offset();
                 if (pos + 8 > item->size()) {
                     // 说明剩下放不下一个record，就是footer
-                    record->clear();
+                    // record->clear();
                     wal_offset = item->wal_offset() + item->size();
                     return true;
                 }
                 
-                sslice data;
+                sslice data(std::string(4, ' '));
 
                 // 读4个字节
                 item->read_exact_at(&data, 4, wal_offset);
@@ -61,16 +61,20 @@ public:
                 item->read_exact_at(&data, 4, wal_offset + 4);
                 auto size_type = DecodeFixed32(data.data());
                 auto type = size_type & ((1 << 8) - 1);
-                auto size = size_type & (~((1 << 8) - 1));
+                auto size = size_type >> 8;
                 std::cout << "size = " << size << std::endl;
-                if (pos + 8 + size < item->size()) {
-                    item->read_exact_at(record, size, wal_offset + 8);
+                if (pos + 8 + size <= item->size()) {
+                    str.resize(size);
+                    sslice record(str);
+                    item->read_exact_at(&record, size, wal_offset + 8);
                     // 
                     if (crc32 == 0) {
                         // 失效
                         item->set_read_write_status();
                         return false;
                     }
+                    wal_offset += 8 + size;
+                    item->set_written(wal_offset - item->wal_offset());
                 } else {
 
                 }

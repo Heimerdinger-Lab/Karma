@@ -19,9 +19,10 @@
 
 
 // 作为frame的hander
-#include "karma-raft/common.h"
-#include "karma-raft/rpc_message.h"
-#include "karma-raft/server.h"
+// #include "karma-raft/common.h"
+// #include "karma-raft/rpc_message.h"
+// #include "karma-raft/server.h"
+#include "scylladb-raft/raft.hh"
 #include <span>
 namespace client {
 // 只是作为header

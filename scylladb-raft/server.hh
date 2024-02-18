@@ -240,7 +240,7 @@ public:
     virtual raft::server_id current_leader() const = 0;
 
     // The function should be called periodically to advance logical clock.
-    virtual void tick() = 0;
+    virtual co_context::task<> tick() = 0;
 
     // Returned future is resolved when state changes
     // State changes can be coalesced, so it is not guaranteed that the caller will

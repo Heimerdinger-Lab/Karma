@@ -4,7 +4,8 @@
 #include "karma-client/client_task.h"
 #include "karma-client/header.h"
 #include "karma-client/payload.h"
-#include "karma-raft/rpc_message.h"
+// #include "karma-raft/rpc_message.h"
+#include "scylladb-raft/raft.hh"
 #include "request.h"
 #include "session.h"
 #include <memory>

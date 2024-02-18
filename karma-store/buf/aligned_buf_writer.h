@@ -10,7 +10,8 @@ class aligned_buf_writer {
 public:
     aligned_buf_writer(uint64_t cursor)
         : m_cursor(cursor) {
-        m_current = std::make_shared<aligned_buf>(cursor);
+        uint64_t from = cursor / aligned_buf_alignment * aligned_buf_alignment;
+        m_current = std::make_shared<aligned_buf>(from);
     };
     bool buffering() {
         return m_buffering;

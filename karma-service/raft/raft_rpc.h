@@ -17,7 +17,7 @@ public:
         // m_client
 
     }
-    co_context::task<> abort()  {}
+    co_context::task<> abort() override {}
 
     // 接受rpc消息，分发给m_server
     void append_entries(raft::server_id from, raft::append_request append_request) {
@@ -28,6 +28,6 @@ public:
     void request_vote_reply(raft::server_id from, raft::vote_reply vote_reply) {}
     void timeout_now_request(raft::server_id from, raft::timeout_now timeout_now) {}
 private:    
-    client::client m_client;
+    // client::client m_client;
 
 };
