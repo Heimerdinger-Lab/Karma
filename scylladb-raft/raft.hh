@@ -45,7 +45,7 @@ using group_id = uint64_t;
 // This type represents the raft term
 using term_t = uint64_t;
 // This type represensts the index into the raft log
-using index_t = uint64_t;
+using index_t = uint32_t;
 // Identifier for a read barrier request
 using read_id = uint64_t;
 

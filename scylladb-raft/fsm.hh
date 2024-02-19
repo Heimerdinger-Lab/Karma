@@ -646,7 +646,8 @@ void fsm::step(server_id from, Message&& msg) {
             _last_election_time = _clock.now();
 
             if (current_leader() != from) {
-                return;
+                co_context::log::e("Got append request/install snapshot/read_quorum from an unexpected leader\n");
+                // return;
                 // on_internal_error_noexcept(logger, "Got append request/install snapshot/read_quorum from an unexpected leader");
             }
         }

@@ -211,7 +211,7 @@ BOOST_AUTO_TEST_CASE(test_progress_flow_control) {
         }
     }
 
-    raft::index_t ack_idx{current_entry}; // Acknowledge all entries at once
+    raft::index_t ack_idx{static_cast<index_t>(current_entry)}; // Acknowledge all entries at once
     fsm.step(id2, raft::append_reply{msg.current_term, ack_idx, raft::append_reply::accepted{ack_idx}});
     output = fsm.get_output();
     // Check fsm outputs the remaining 10 entries

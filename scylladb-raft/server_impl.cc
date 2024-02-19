@@ -64,6 +64,7 @@ public:
     ~server_impl() {}
 
     // rpc_server interface
+    // rpc收到请求后调用
     void append_entries(server_id from, append_request append_request) override;
     void append_entries_reply(server_id from, append_reply reply) override;
     void request_vote(server_id from, vote_request vote_request) override;
@@ -79,6 +80,7 @@ public:
 
 
     // server interface
+    // 外部调用
     co_context::task<> add_entry(command command, wait_type type) override;
     co_context::task<> set_configuration(config_member_set c_new) override;
     raft::configuration get_configuration() const override;

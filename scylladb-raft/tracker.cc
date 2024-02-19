@@ -213,7 +213,7 @@ T tracker::committed(T prev_commit_idx) {
 }
 
 template index_t tracker::committed(index_t);
-// template read_id tracker::committed(read_id);
+template read_id tracker::committed(read_id);
 
 votes::votes(configuration configuration)
         : _current(configuration.current) {
