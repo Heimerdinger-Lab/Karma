@@ -27,13 +27,8 @@ BOOST_AUTO_TEST_CASE(server_01) {
     // }());
     ctx.co_spawn([]() -> co_context::task<> {
         cluster cls(3);
-        co_context::co_spawn([&cls]() -> co_context::task<> {
-            while(1) {
-                cls.tick();
-                co_await co_context::yield();
-            }
-        }());
-        
+
+        cls.
         co_return;
     }());
     ctx.start();
