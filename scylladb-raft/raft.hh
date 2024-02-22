@@ -8,6 +8,7 @@
 #pragma once
 
 #include <cassert>
+#include <cstdint>
 #include <fmt/format.h>
 #include <memory>
 #include <stdexcept>
@@ -32,6 +33,8 @@ namespace raft {
 // Keeps user defined command. A user is responsible to serialize
 // a state machine operation into it before passing to raft and
 // deserialize in apply() before applying.
+// using command = std::string;
+
 using command = std::string;
 using command_cref = std::reference_wrapper<const command>;
 
@@ -511,6 +514,9 @@ using add_entry_reply = std::variant<entry_id, transient_error, commit_status_un
 // raft::not_a_leader if the node is not a leader
 // index_t index that is safe to read without breaking linearizability
 using read_barrier_reply = std::variant<std::monostate, index_t, raft::not_a_leader>;
+
+
+
 
 using rpc_message = std::variant<append_request,
       append_reply,

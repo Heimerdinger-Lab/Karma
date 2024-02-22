@@ -7,12 +7,15 @@
  */
 #pragma once
 
+#include "co_context/co/channel.hpp"
 #include "co_context/co/condition_variable.hpp"
 #include "co_context/co/mutex.hpp"
 #include "co_context/log/log.hpp"
 #include "raft.hh"
 #include "tracker.hh"
 #include "log.hh"
+#include <iostream>
+#include <variant>
 
 namespace raft {
 
@@ -233,8 +236,10 @@ private:
 
     // Signaled when there is a IO event to process.
     // seastar::condition_variable _sm_events;
+    bool _sm_events_flag = false;
     co_context::mutex _sm_events_mtx;
     co_context::condition_variable _sm_events;
+    // co_context::channel<std::monostate> _sm_events;
 
     // Called when one of the replicas advances its match index
     // so it may be the case that some entries are committed now.
@@ -250,8 +255,11 @@ private:
     template <typename Message>
     void send_to(server_id to, Message&& m) {
         static_assert(std::is_rvalue_reference<decltype(m)>::value, "must be rvalue");
+        std::cout << "send_to" << std::endl;
         _messages.push_back(std::make_pair(to, std::move(m)));
+        _sm_events_flag = true;
         _sm_events.notify_all();
+        // co_await _sm_events.release();
     }
 
     // A helper to update the FSM's current term.
@@ -319,7 +327,9 @@ private:
         assert(is_leader());
         ++leader_state().last_read_id;
         leader_state().last_read_id_changed = true;
+        _sm_events_flag = true;
         _sm_events.notify_all();
+        // co_await _sm_events.release();
         return leader_state().last_read_id;
     }
 

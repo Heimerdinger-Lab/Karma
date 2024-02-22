@@ -7,6 +7,8 @@
  */
 #include "fsm.hh"
 #include "co_context/task.hpp"
+#include "scylladb-raft/raft.hh"
+#include <iostream>
 #include <memory>
 #include <random>
 // #include <seastar/core/coroutine.hh>
@@ -108,7 +110,10 @@ const log_entry& fsm::add_entry(T command) {
     //                                    [] { throw std::runtime_error("fsm::add_entry/test-failure"); });
 
     _log.emplace_back(std::make_shared<log_entry>(_current_term, _log.next_idx(), std::move(command)));
+    
+    _sm_events_flag = true;
     _sm_events.notify_all();
+    // _sm_events.release();
 
     if constexpr (std::is_same_v<T, configuration>) {
         // 4.1. Cluster membership changes/Safety.
@@ -137,6 +142,7 @@ void fsm::advance_commit_idx(index_t leader_commit_idx) {
 
     if (new_commit_idx > _commit_idx) {
         _commit_idx = new_commit_idx;
+        _sm_events_flag = true;
         _sm_events.notify_all();
         co_context::log::d("advance_commit_idx[{}]: signal apply_entries: committed: {}",
             _my_id, _commit_idx);
@@ -152,13 +158,17 @@ void fsm::update_current_term(term_t current_term)
 }
 
 void fsm::reset_election_timeout() {
-    static thread_local std::default_random_engine re{std::random_device{}()};
-    static thread_local std::uniform_int_distribution<> dist;
+    // static thread_local std::default_random_engine re{std::random_device{}()};
+    // static thread_local std::uniform_int_distribution<> dist;
     // Timeout within range of [1, conf size]
-    _randomized_election_timeout = ELECTION_TIMEOUT + logical_clock::duration{dist(re,
-            std::uniform_int_distribution<int>::param_type{1,
-                    static_cast<int>(std::max((size_t) ELECTION_TIMEOUT.count(),
-                            _log.get_configuration().current.size()))})};
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+    std::uniform_int_distribution<int> distribution(1, 5);
+    _randomized_election_timeout = ELECTION_TIMEOUT + logical_clock::duration{distribution(gen)};
+    // _randomized_election_timeout = ELECTION_TIMEOUT + logical_clock::duration{dist(re,
+    //         std::uniform_int_distribution<int>::param_type{1,
+    //                 static_cast<int>(std::max((size_t) ELECTION_TIMEOUT.count(),
+    //                         _log.get_configuration().current.size()))})};
 }
 
 void fsm::become_leader() {
@@ -221,8 +231,8 @@ void fsm::become_candidate(bool is_prevote, bool is_leadership_transfer) {
 
     // Note that current state should be destroyed only after the new one is
     // assigned. The exchange here guarantis that.
-    std::exchange(_state, candidate(_log.get_configuration(), is_prevote));
-
+    // std::exchange(_state, candidate(_log.get_configuration(), is_prevote));
+    _state = candidate(_log.get_configuration(), is_prevote);
     reset_election_timeout();
 
     // 3.4 Leader election
@@ -309,6 +319,7 @@ void fsm::become_candidate(bool is_prevote, bool is_leadership_transfer) {
 }
 
 co_context::task<fsm_output> fsm::poll_output() {
+    std::cout << "poll_output" << std::endl;
     co_context::log::d("fsm::poll_output() {} stable index: {} last index: {}",
         _my_id, _log.stable_idx(), _log.last_idx());
 
@@ -319,7 +330,10 @@ co_context::task<fsm_output> fsm::poll_output() {
                 (is_leader() && leader_state().last_read_id_changed) || _output.snp || !_output.snps_to_drop.empty() || _output.state_changed) {
             break;
         }
-        co_await _sm_events.wait(_sm_events_mtx);
+        co_await _sm_events_mtx.lock();
+        co_await _sm_events.wait(_sm_events_mtx, [this]() -> bool {return _sm_events_flag;});
+        _sm_events_flag = false;
+        _sm_events_mtx.unlock();
     }
     // while (utils::get_local_injector().enter("fsm::poll_output/pause")) {
     //     co_await seastar::sleep(std::chrono::milliseconds(100));
@@ -328,6 +342,7 @@ co_context::task<fsm_output> fsm::poll_output() {
 }
 
 fsm_output fsm::get_output() {
+    std::cout << "get_output" << std::endl;
     auto diff = _log.last_idx() - _log.stable_idx();
 
     if (is_leader()) {
@@ -459,6 +474,7 @@ void fsm::maybe_commit() {
     _commit_idx = new_commit_idx;
     // We have a quorum of servers with match_idx greater than the
     // current commit index. Commit && apply more entries.
+    _sm_events_flag = true;
     _sm_events.notify_all();
 
     if (committed_conf_change) {
@@ -584,6 +600,7 @@ void fsm::tick_leader() {
             state.stepdown.reset();
             state.timeout_now_sent.reset();
             _abort_leadership_transfer = true;
+            _sm_events_flag = true;
             _sm_events.notify_all(); // signal to handle aborting of leadership transfer
         } else if (state.timeout_now_sent) {
             co_context::log::d("tick[{}]: resend timeout_now", _my_id);
@@ -594,28 +611,34 @@ void fsm::tick_leader() {
 }
 
 void fsm::tick() {
+    // std::cout << "fsm::tick" << std::endl;
     _clock.advance();
 
-    auto has_stable_leader = [this]() {
-        // A leader that is not voting member of a current configuration
-        // has likely have stepped down.  Since the failure
-        // detector may still report the leader node as alive and
-        // healthy, we must not apply the stable leader rule
-        // in this case.
-        const configuration& conf = _log.get_configuration();
-        return current_leader() && conf.can_vote(current_leader()) &&
-            _failure_detector.is_alive(current_leader());
-    };
-
+    // auto has_stable_leader = [this]() {
+    //     // A leader that is not voting member of a current configuration
+    //     // has likely have stepped down.  Since the failure
+    //     // detector may still report the leader node as alive and
+    //     // healthy, we must not apply the stable leader rule
+    //     // in this case.
+    //     const configuration& conf = _log.get_configuration();
+    //     return current_leader() && conf.can_vote(current_leader()) &&
+    //         _failure_detector.is_alive(current_leader());
+    // };
+    bool sb = (_clock.now() - _last_election_time) > _randomized_election_timeout;
     if (is_leader()) {
-        tick_leader();
-    } else if (has_stable_leader()) {
+        // std::cout << "is_leader" << std::endl;
+        // tick_leader();
+    } else if (current_leader()) {
+        
+        std::cout << "current_leader" << std::endl;
         // Ensure the follower doesn't disrupt a valid leader
         // simply because there were no AppendEntries RPCs recently.
         _last_election_time = _clock.now();
-    } else if (is_past_election_timeout()) {
-        co_context::log::d("tick[{}]: becoming a candidate at term {}, last election: {}, now: {}", _my_id,
-            _current_term, _last_election_time, _clock.now());
+    } else if (sb && _my_id == 1) {
+        
+        std::cout << "become_candidate" << std::endl;
+        // co_context::log::d("tick[{}]: becoming a candidate at term {}, last election: {}, now: {}", _my_id,
+        //     _current_term, _last_election_time, _clock.now());
         become_candidate(_config.enable_prevoting);
     }
 
@@ -631,7 +654,7 @@ void fsm::tick() {
         if (!cfg.is_joint() && cfg.current.contains(_my_id)) {
             for (auto s : cfg.current) {
                 if (s.can_vote && s.addr.id != _my_id && _failure_detector.is_alive(s.addr.id)) {
-                    co_context::log::d("tick[{}]: searching for a leader. Pinging {}", _my_id, s.addr.id);
+                    // co_context::log::d("tick[{}]: searching for a leader. Pinging {}", _my_id, s.addr.id);
                     send_to(s.addr.id, append_reply{_current_term, _commit_idx, append_reply::rejected{index_t{0}, index_t{0}}});
                 }
             }
@@ -785,7 +808,7 @@ void fsm::append_entries_reply(server_id from, append_reply&& reply) {
 }
 
 void fsm::request_vote(server_id from, vote_request&& request) {
-
+    std::cout << "fsm::request_vote" << std::endl;
     // We can cast a vote in any state. If the candidate's term is
     // lower than ours, we ignore the request. Otherwise we first
     // update our current term and convert to a follower.
@@ -824,6 +847,7 @@ void fsm::request_vote(server_id from, vote_request&& request) {
         // (recall that for pre-votes we don't update the local term), the
         // (pre-)campaigning node on the other end will proceed to ignore
         // the message (it ignores all out of date messages).
+        // std::cout << "send vote_reply: " << _my_id << ", to: " << from << std::endl;
         send_to(from, vote_reply{request.current_term, true, request.is_prevote});
     } else {
         // If a vote is not granted, this server is a potential
@@ -1040,6 +1064,7 @@ bool fsm::apply_snapshot(snapshot_descriptor snp, size_t max_trailing_entries, s
         co_context::log::d("apply_snapshot[{}]: signal {} available units", _my_id, units);
         // leader_state().log_limiter_semaphore->signal(units);
     }
+    _sm_events_flag = true;
     _sm_events.notify_all();
     return true;
 }
@@ -1116,7 +1141,7 @@ void fsm::handle_read_quorum_reply(server_id from, const read_quorum_reply& repl
     _output.max_read_id_with_quorum = state.max_read_id_with_quorum = new_committed_read;
 
     co_context::log::d("handle_read_quorum_reply[{}] new commit read {}", _my_id, new_committed_read);
-
+    _sm_events_flag = true;
     _sm_events.notify_all();
 }
 
