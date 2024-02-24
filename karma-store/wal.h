@@ -89,12 +89,31 @@ public:
         // 1. 创建segment_file
         // 2. 调用segment_file.open
         std::vector<std::shared_ptr<segment_file>> segments;    
-        if (m_segments.empty()) {
-            uint64_t wal_offset = 0;
-            segments.push_back(std::make_shared<segment_file>(wal_offset, 1048576, m_directory_path + "/" + std::to_string(wal_offset)));
-            wal_offset += 1048576;
-            segments.push_back(std::make_shared<segment_file>(wal_offset, 1048576, m_directory_path + "/" + std::to_string(wal_offset)));
+        // if (m_segments.empty()) {
+        //     uint64_t wal_offset = 0;
+        //     segments.push_back(std::make_shared<segment_file>(wal_offset, 1048576, m_directory_path + "/" + std::to_string(wal_offset)));
+        //     wal_offset += 1048576;
+        //     segments.push_back(std::make_shared<segment_file>(wal_offset, 1048576, m_directory_path + "/" + std::to_string(wal_offset)));
+        // }
+        int read_write_cnt = 0;
+        for (auto& segment : m_segments) {
+            if (segment->read_write_status()) {
+                read_write_cnt++;
+            }
         }
+        // std::cout << "read_write_cnt = " << read_write_cnt << std::endl;
+        if (read_write_cnt < 2) {
+            read_write_cnt = 2 - read_write_cnt;
+            uint64_t wal_offset = 0;
+            if (m_segments.size() > 0)  {
+                wal_offset = m_segments.back()->wal_offset() + m_segments.back()->size();
+            }
+            for (int i = 0; i < read_write_cnt; i++) {
+                segments.push_back(std::make_shared<segment_file>(wal_offset, 1048576, m_directory_path + "/" + std::to_string(wal_offset)));
+                wal_offset += 1048576;
+            }
+        }
+        // if 
         for (const auto &item: segments) {
             item->open_and_create();
             m_segments.push_back(item);

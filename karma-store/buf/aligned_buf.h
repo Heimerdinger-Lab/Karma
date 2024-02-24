@@ -12,12 +12,9 @@ public:
     aligned_buf(uint64_t wal_offset, uint64_t len = aligned_buf_alignment)
         : m_wal_offset(wal_offset)
         , m_capacity(len) {
-        // uint64_t        
-        // m_wal_offset = ()
         m_buf = (char *)aligned_alloc(aligned_buf_alignment, m_capacity);
         memset(m_buf, 0, m_capacity);
     };
-
     ~aligned_buf() {
         free(m_buf);
     }
@@ -38,6 +35,9 @@ public:
     };
     bool covers(uint64_t wal_offset, uint64_t len) {
         return (m_wal_offset <= wal_offset) && (wal_offset + len <= m_wal_offset + limit());
+    }
+    bool partial() {
+        return limit() > 0 && limit() < m_capacity;
     }
     bool write_u64(uint64_t cursor, uint64_t value) {
         uint64_t pos = limit();

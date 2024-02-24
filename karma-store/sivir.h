@@ -71,13 +71,13 @@ public:
         auto pos = add_record("123");
 
         // update the memtable and the cached
-
+        std::cout << "pos = " << pos.wal_offset << std::endl;
     }
     void del(std::string key) {
         // 
     }
-    void get(std::string key, std::string *value) {
-
+    void get(std::string key, std::string *value, int idx) {
+        get_record(11 * idx, 11);
         // check the cached
         // search the memtable 
         // lookup in the wal
@@ -130,16 +130,21 @@ public:
     };
 
     struct read_result {
+        // [wal_offset, wal_offset + size]
+        // sslice m_value;
     };
     struct read_task {
         uint64_t m_wal_offset;
         uint32_t m_len;
         std::string* m_value;
         // observer
-        std::queue<read_result> m_channel;
+        // std::queue<read_result> m_channel;
+        std::shared_ptr<std::promise<read_result>> m_prom;
     };
     struct record_pos {
         uint64_t wal_offset;
+        uint64_t record_size;
+        // [wal_offset + 8, wal_offset + record_size)
         sslice m_value;
     };
     void init_uring() {}
@@ -155,7 +160,7 @@ public:
             m_wal.try_open_segment();
             m_wal.try_close_segment(0);
             int cnt = receive_io_tasks();
-            if (cnt == 1) 
+            if (cnt > 0) 
                 std::cout << "receive " << cnt << " io task" << std::endl;
             if (cnt > 0) {
                 build_sqe();    
@@ -171,11 +176,13 @@ public:
         if (ctx->m_opcode == 0) {
             // write
             m_window.commit(ctx->m_wal_offset, ctx->m_buf->limit());
+            m_barrier.erase(ctx->m_wal_offset);
         } else if (ctx->m_opcode == 1) {
             // 直接调用read_task的observer
             uint32_t idx = ctx->m_read_idx;
             complete_read_task(idx, ctx);
         }
+        return 0;
     };
     void complete_write_task() {
         // 如果write_window的commit index 大于 这个 write_task的cursor，则调用write_task的observer
@@ -183,27 +190,30 @@ public:
         std::cout << "complete_write_task" << std::endl;
         m_window.advance();
         uint64_t idx = m_window.commit_offset();
-        for (auto & item : m_inflight_write_tasks) {
-            if (item.first <= idx) {
+        for (auto it = m_inflight_write_tasks.begin(); it != m_inflight_write_tasks.end(); ) {
+            if (it->first <= idx) {
                 write_result result;
-                result.m_wal_offset = item.first - item.second.m_data.size();
-                result.m_size = item.second.m_data.size();
-                item.second.m_prom->set_value(result);       
+                result.m_wal_offset = it->first - it->second.m_data.size() - 8;
+                result.m_size = it->second.m_data.size() + 8;
+                it->second.m_prom->set_value(result);
+                it = m_inflight_write_tasks.erase(it);       
             } else {
                 break;
             }
         }
     }
     void complete_read_task(uint32_t idx, context *ctx) {
+        std::cout << "read_task" << std::endl;
         read_result res;
         uint64_t wal_offset = m_inflight_read_tasks[idx].m_wal_offset;
         uint64_t len = m_inflight_read_tasks[idx].m_len;
         m_inflight_read_tasks[idx].m_value->append(ctx->m_buf->buf() + (wal_offset - ctx->m_buf->wal_offset()),  len);
-        m_inflight_read_tasks[idx].m_channel.push(read_result {});
+        m_inflight_read_tasks[idx].m_prom->set_value(res);
+        // m_inflight_read_tasks[idx].m_channel.push(read_result {});
     }
     void reap_data_tasks() {    
         struct io_uring_cqe *cqe;
-        while(io_uring_wait_cqe(&m_data_ring, &cqe) == 0) {
+        while(io_uring_peek_cqe(&m_data_ring, &cqe) == 0) {
             std::cout << "reap_data_tasks" << std::endl;
             auto user_data = static_cast<context*>(io_uring_cqe_get_data(cqe));
             int ret = on_complete(user_data);
@@ -212,6 +222,7 @@ public:
                 // 则将其携带的buf添加到cache中
                 // 对于读请求，首先需要知道什么segment读到了
                 // 然后枚举所有读这个segment的请求，取cache
+                std::cout << "end of on_complete" << std::endl;
             }
             io_uring_cqe_seen(&m_data_ring, cqe);
         }
@@ -232,9 +243,14 @@ public:
     void build_write_sqe() {
         // 枚举所有full和current的buf
         // m_buf_writer->write();
-        for (auto it = m_buf_writer->m_full.begin(); it != m_buf_writer->m_full.end(); ) {            
-            auto sqe = io_uring_get_sqe(&m_data_ring); // 从环中得到一块空位
+        for (auto it = m_buf_writer->m_full.begin(); it != m_buf_writer->m_full.end(); ) {   
             auto item = *it;
+            if (m_barrier.contains(item->wal_offset())) {
+                // 说明还有未完成的 
+                continue;
+            }
+            auto sqe = io_uring_get_sqe(&m_data_ring); // 从环中得到一块空位
+            // m_barrier.insert(item->wal_offset());
             auto segment = m_wal.segment_file_of(item->wal_offset());
             io_uring_prep_write(sqe, segment->fd(), item->buf(), item->capacity(), item->wal_offset());
             context *ctx = new context();
@@ -249,8 +265,13 @@ public:
             it = m_buf_writer->m_full.erase(it);
         }
         if (m_buf_writer->m_current->limit() > 0) {
-            auto sqe = io_uring_get_sqe(&m_data_ring); // 从环中得到一块空位
             auto item = m_buf_writer->m_current;
+            if (m_barrier.contains(item->wal_offset())) {
+                // 说明还有未完成的 
+                return;
+            }
+            auto sqe = io_uring_get_sqe(&m_data_ring); // 从环中得到一块空位
+            m_barrier.insert(item->wal_offset());
             auto segment = m_wal.segment_file_of(item->wal_offset());
             io_uring_prep_write(sqe, segment->fd(), item->buf(), item->capacity(), item->wal_offset());
             context *ctx = new context();
@@ -280,6 +301,7 @@ public:
                 auto payload_length = task.m_data.size();
                 if (!segment->can_hold(payload_length + 8)) {
                     segment->append_footer(writer);
+                    segment->set_read_status();
                     continue;
                 };
                 // segment->set_written(0);
@@ -288,6 +310,7 @@ public:
                 need_write = true;
             } else {
                 // read
+                std::cout << "get read task" << std::endl;
                 auto task = std::get<read_task>(io_task);
                 auto segment = m_wal.segment_file_of(task.m_wal_offset);
                 // 
@@ -298,6 +321,8 @@ public:
                 ctx->m_wal_offset = task.m_wal_offset;
                 ctx->m_len = task.m_len;
                 ctx->m_opcode = 1;
+                ctx->m_read_idx = 2;
+                m_inflight_read_tasks[2] = task;
                 io_uring_prep_read(sqe, segment->fd(), buf->buf(), buf->capacity(), buf->wal_offset() - segment->wal_offset()); // 为这块空位准备好操作
                 io_uring_sqe_set_data(sqe, ctx);
             }
@@ -318,8 +343,31 @@ public:
         auto x = task.m_prom->get_future().get();
         std::cout << "x.wal_offset = " << x.m_wal_offset << std::endl;
         std::cout << "x.size = " << x.m_size << std::endl;
-         
+        return record_pos{x.m_wal_offset, x.m_size};
+
+        std::string s;
+        s.erase(2);
         
+    }
+    record_pos get_record(uint64_t wal_offset, uint64_t size) {
+        // record是从[wal_offset, wal_offset + size)
+        // 返回数据是[wal_offset + 8, wal_offset + size)
+        read_task task;
+        std::string value;
+        task.m_value = &value;
+        task.m_wal_offset = wal_offset;
+        task.m_len = size;
+        task.m_prom = std::make_shared<std::promise<sivir::read_result>>();
+        m_channel.push(task);
+        auto x = task.m_prom->get_future().get();
+        
+        // auto record = x.m_value;
+        // 然后计算crc32
+
+        // 返回 +8位置之后的
+        // task.m_value.
+        std::cout << "task.value = " << value.erase(0, 8) << std::endl;
+        // return record_pos{.m_value = record};
     }
     void compactor_run() {
         // gc_wal_offset 表示之前的wal都是垃圾，可以回收了
@@ -353,11 +401,13 @@ public:
     // key是read_task的编号
     std::map<uint32_t, read_task> m_inflight_read_tasks;
     // key是这个buf的wal_offset
+    // [key, key + align] 正在inflight
     std::set<uint64_t> m_barrier;
     
     // 这些是阻塞的
     // buf的wal_offset
-    std::map<uint64_t, std::pair<context, io_uring_sqe>> m_blocked;
+    // std::map<uint64_t, std::pair<context, io_uring_sqe>> m_blocked;
+
 
     wal m_wal;
     std::shared_ptr<aligned_buf_writer> m_buf_writer;

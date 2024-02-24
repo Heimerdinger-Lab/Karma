@@ -33,6 +33,9 @@ public:
     void set_read_status() {
         m_status = status::read;
     }
+    bool read_write_status() {
+        return m_status == status::read_write;
+    }
     void set_read_write_status() {
         m_status = status::read_write;
     }
