@@ -19,16 +19,16 @@ namespace test {
             open_options config;
             config.queue_depth = 32768;
             config.sqpoll_cpu = 0;
-            config.path = "/home/tpa/lab/Karma/temp";
+            config.path = "/home/tpa/Heimerdinger-Lab/Karma/temp";
             sivir db(config);
-            for (int i = 0; i <= 1048576; i++) {
+            for (int i = 0; i <= 1048576 / 5; i++) {
                 std::cout << "i = " << i << std::endl;
                 db.put(write_options{}, "0123456789", "abcde"); 
             }
-            for (int i = 0; i <= 1048576; i++) {
-                std::string value;
-                db.get("0123456789", &value, i);
-            }
+            // for (int i = 0; i <= 1048576 / 5; i++) {
+            //     std::string value;
+            //     db.get("0123456789", &value, i);
+            // }
             std::cout << "done" << std::endl;
             // db.put(write_options{}, "0123456789", "abcde");
             // std::string value;

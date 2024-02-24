@@ -5,6 +5,8 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <iostream>
+#include <ostream>
 #include <string>
 constexpr const size_t aligned_buf_alignment = 4096;
 class aligned_buf {
@@ -20,7 +22,13 @@ public:
     }
     bool write_buf(uint64_t cursor, const sslice& data) {
         uint64_t pos = limit();
-        assert(m_wal_offset + pos == cursor);
+        if ((m_wal_offset + pos) != cursor) {
+            std::cout << "m_wal_offset = " << m_wal_offset << std::endl;
+            std::cout << "pos = " << pos << std::endl;
+            std::cout << "cursor = " << cursor << std::endl;
+            assert(false);
+        }
+        assert((m_wal_offset + pos) == cursor);
         if (pos + data.size() > m_capacity) {
             return false;
         }

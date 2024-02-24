@@ -126,7 +126,7 @@ public:
     }
     std::shared_ptr<segment_file> segment_file_of(uint64_t wal_offset) {
         for (const auto &item: m_segments) {
-            if (wal_offset >= item->wal_offset() && wal_offset < item->wal_offset() + item->size()) {
+            if (wal_offset >= item->wal_offset() && wal_offset < (item->wal_offset() + item->size())) {
                 return item;
             }
         }
