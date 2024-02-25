@@ -56,7 +56,7 @@ public:
     uint32_t cal_length_type(uint32_t size, uint8_t type) {
         return size << 8 | type;
     }
-    uint64_t append_record(std::shared_ptr<aligned_buf_writer> writer, sslice& slice) {
+    uint64_t append_record(std::shared_ptr<aligned_buf_writer> writer, sslice slice) {
         // auto crc32 = cal_crc32(slice);
         uint32_t crc32 = crc32c::Value(slice.data(), slice.size());
         uint32_t length_type = cal_length_type(slice.size(), 0);

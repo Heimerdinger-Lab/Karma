@@ -20,7 +20,7 @@ public:
     uint64_t cursor() {
         return m_cursor;
     }
-    bool write(sslice& data) {
+    bool write(sslice data) {
         uint64_t len = data.size();
         uint64_t pos = 0;
         while (true) {
@@ -44,6 +44,7 @@ public:
         std::cout << "len = " << len << std::endl;
         m_cursor += len;
         // m_buffering = true;
+        m_dirty = true;
         return true;
     };
     bool write_u32(uint32_t value) {
@@ -60,10 +61,16 @@ public:
         sslice sstr(str);
         return write(sstr);
     }
-    
+    bool dirty() {
+        return m_dirty;
+        // return true;
+    }
+    void set_dirty(bool value) {
+        m_dirty = value;
+    }
 public:
     uint64_t m_cursor;
     std::vector<std::shared_ptr<aligned_buf>> m_full;
     std::shared_ptr<aligned_buf> m_current;
-    // bool m_buffering;
+    bool m_dirty = true;
 };

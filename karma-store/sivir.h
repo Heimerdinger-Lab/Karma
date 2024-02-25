@@ -6,6 +6,7 @@
 #include "options.h"
 #include "wal.h"
 #include "write_window.h"
+#include <cassert>
 #include <cstdint>
 #include <map>
 #include <memory>
@@ -70,10 +71,19 @@ public:
         // 更新memtable和cache
         std::string sb("123");
         auto pos = add_record(sb);
-
+        if (pos.record_size != 11) {
+            std::cout << "record_size = " << pos.record_size << std::endl;
+            assert(pos.record_size == 11);
+        }
+        
         // update the memtable and the cached
         // std::cout << "pos = " << pos.wal_offset << std::endl;
-        get_record(pos.wal_offset, pos.record_size);
+        // get_record(pos.wal_offset, pos.record_size);
+        auto seg = m_wal.segment_file_of(pos.wal_offset);
+        std::string sssb(3, ' ');
+        sslice sa(sssb);
+        seg->read_exact_at(&sa, 3, pos.wal_offset + 8);
+        assert(sssb.compare("123") == 0);
     }
     void del(std::string key) {
         // 
@@ -162,21 +172,16 @@ public:
             m_wal.try_open_segment();
             m_wal.try_close_segment(0);
             int cnt = receive_io_tasks();
-            // if (cnt > 0) 
-                // std::cout << "receive " << cnt << " io task" << std::endl;
-            // if (cnt > 0) {
-                build_sqe();    
-                // std::cout << "before" << std::endl;
-                io_uring_submit_and_wait(&m_data_ring, 1);
-                // std::cout << "after" << std::endl;
-                reap_data_tasks();
-            // }
-                
+            build_sqe();    
+            io_uring_submit(&m_data_ring);
+            // io_uring_submit_and_wait(&m_data_ring, 1);
+            reap_data_tasks();
         };
     }
     int on_complete(context* ctx) {
         if (ctx->m_opcode == 0) {
             // write
+            std::cout << "write: " << ctx->m_wal_offset << ", limit: " << ctx->m_buf->limit() << std::endl;
             m_window.commit(ctx->m_wal_offset, ctx->m_buf->limit());
             m_barrier.erase(ctx->m_wal_offset);
         } else if (ctx->m_opcode == 1) {
@@ -195,6 +200,7 @@ public:
         for (auto it = m_inflight_write_tasks.begin(); it != m_inflight_write_tasks.end(); ) {
             if (it->first <= idx) {
                 write_result result;
+                assert((it->second.m_data.size()) == 3);
                 result.m_wal_offset = it->first - it->second.m_data.size() - 8;
                 result.m_size = it->second.m_data.size() + 8;
                 it->second.m_prom->set_value(result);
@@ -209,7 +215,13 @@ public:
         read_result res;
         uint64_t wal_offset = m_inflight_read_tasks[idx].m_wal_offset;
         uint64_t len = m_inflight_read_tasks[idx].m_len;
+        assert(len == 11);
         m_inflight_read_tasks[idx].m_value->append(ctx->m_buf->buf() + (wal_offset - ctx->m_buf->wal_offset()),  len);
+        assert(m_inflight_read_tasks[idx].m_value->size() == 11);
+        if (m_inflight_read_tasks[idx].m_value->at(10) != '3') {
+            std::cout << "cap: " << ctx->m_buf->capacity() << std::endl;
+            assert(m_inflight_read_tasks[idx].m_value->at(10) == '3');
+        }
         m_inflight_read_tasks[idx].m_prom->set_value(res);
         // m_inflight_read_tasks[idx].m_channel.push(read_result {});
     }
@@ -217,6 +229,9 @@ public:
         struct io_uring_cqe *cqe;
         while(io_uring_peek_cqe(&m_data_ring, &cqe) == 0) {
             // std::cout << "reap_data_tasks" << std::endl;
+            // if (cqe->res == )
+            std::cout << "cqe->Res: " << cqe->res << std::endl;
+            assert(cqe->res >= 0);
             auto user_data = static_cast<context*>(io_uring_cqe_get_data(cqe));
             int ret = on_complete(user_data);
             if (ret == 0) {
@@ -226,6 +241,7 @@ public:
                 // 然后枚举所有读这个segment的请求，取cache
                 // std::cout << "end of on_complete" << std::endl;
             }
+            free(user_data);
             io_uring_cqe_seen(&m_data_ring, cqe);
         }
         // complete_read_task();
@@ -252,12 +268,15 @@ public:
         return cnt;
     }
     void build_write_sqe() {
+        // std::cout << "full.size: " << m_buf_writer->m_full.size() << std::endl;
+        // std::cout << "barrier.size: " << m_barrier.size() << std::endl;
         // 枚举所有full和current的buf
         // m_buf_writer->write();
         for (auto it = m_buf_writer->m_full.begin(); it != m_buf_writer->m_full.end(); ) {   
             auto item = *it;
             if (m_barrier.contains(item->wal_offset())) {
                 // 说明还有未完成的 
+                it++;
                 continue;
             }
             auto sqe = io_uring_get_sqe(&m_data_ring); // 从环中得到一块空位
@@ -275,7 +294,7 @@ public:
             io_uring_sqe_set_data(sqe, ctx);
             it = m_buf_writer->m_full.erase(it);
         }
-        if (m_buf_writer->m_current->limit() > 0) {
+        if (m_buf_writer->m_current->limit() > 0 && m_buf_writer->dirty()) {
             auto item = m_buf_writer->m_current;
             if (m_barrier.contains(item->wal_offset())) {
                 // 说明还有未完成的 
@@ -295,6 +314,7 @@ public:
             // std::cout << "2sqe: cap = " << ctx->m_buf->capacity() << std::endl;
             io_uring_sqe_set_data(sqe, ctx);
         }
+        m_buf_writer->set_dirty(false);
     }
     void build_sqe() {
         // 将pending_task的任务生产sqe
@@ -318,6 +338,7 @@ public:
                     continue;
                 };
                 // segment->set_written(0);
+                // assert(task.m_data.size() == 11);
                 auto cursor = segment->append_record(writer, task.m_data);
                 m_inflight_write_tasks[cursor] = task;
                 // std::cout << "cursor = " << cursor << std::endl;

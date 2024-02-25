@@ -20,7 +20,7 @@ public:
     ~aligned_buf() {
         free(m_buf);
     }
-    bool write_buf(uint64_t cursor, const sslice& data) {
+    bool write_buf(uint64_t cursor, const sslice data) {
         uint64_t pos = limit();
         if ((m_wal_offset + pos) != cursor) {
             std::cout << "m_wal_offset = " << m_wal_offset << std::endl;
