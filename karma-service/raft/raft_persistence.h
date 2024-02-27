@@ -1,7 +1,8 @@
 #pragma once
 // #include "karma-raft/raft.h"
-#include "scylladb-raft/raft.hh"
+#include "karma-raft/raft.hh"
 #include <vector>
+namespace service {
 class raft_persistence : public raft::persistence {
 public:
     ~raft_persistence() {}
@@ -22,3 +23,4 @@ private:
     raft::index_t m_index;
     std::vector<raft::log_entry_ptr> m_entries;
 };
+}

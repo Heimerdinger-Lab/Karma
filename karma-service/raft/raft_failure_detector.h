@@ -1,5 +1,6 @@
 #pragma once
-#include "scylladb-raft/raft.hh"
+#include "karma-raft/raft.hh"
+namespace service {
 class raft_failure_detector : public raft::failure_detector {
 public:
     ~raft_failure_detector() {}
@@ -10,3 +11,4 @@ public:
         return true;
     }
 };
+}

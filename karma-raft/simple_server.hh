@@ -12,23 +12,28 @@
 class sb_server {
 public:
     // 外部
-    sb_server(raft::server_id id, std::unique_ptr<raft::state_machine> sm, std::unique_ptr<raft::rpc> rpc_, std::unique_ptr<raft::failure_detector> fd_) 
+    sb_server(raft::server_id id, std::unique_ptr<raft::state_machine> sm, std::unique_ptr<raft::rpc> rpc_, std::unique_ptr<raft::failure_detector> fd_, std::vector<raft::config_member> members) 
         : _id(id)
         , _state_machine(std::move(sm))
         , _rpc(std::move(rpc_)) 
-        , _failure_detector(std::move(fd_)){
+        , _failure_detector(std::move(fd_))
+        , _members(members){
         } 
     co_context::task<> start() {
         raft::snapshot_descriptor snp;
         snp.id = 0;
         snp.idx = 0;
         snp.term = 0;
-        raft::config_member member1(raft::server_address(1, "1"), true);
-        raft::config_member member2(raft::server_address(2, "2"), true);
-        raft::config_member member3(raft::server_address(3, "3"), true);
-        snp.config.current.insert(member1);
-        snp.config.current.insert(member2);
-        snp.config.current.insert(member3);
+        // raft::config_member member1(raft::server_address(1, "1"), true);
+        // raft::config_member member2(raft::server_address(2, "2"), true);
+        // raft::config_member member3(raft::server_address(3, "3"), true);
+        // snp.config.current.insert(member1);
+        // snp.config.current.insert(member2);
+        // snp.config.current.insert(member3);
+        for (auto& item : _members) {
+            snp.config.current.insert(item);
+        }
+
         auto log = raft::log(snp, std::move(_entries));
         _fsm = std::make_unique<raft::fsm>(_id, _term, _vote_id, log, _commit_idx, *_failure_detector,
                                     raft::fsm_config {
@@ -45,8 +50,8 @@ public:
     bool is_leader() {
         return _fsm->is_leader();
     }
-    static std::unique_ptr<sb_server> create(raft::server_id id, std::unique_ptr<raft::state_machine> sm, std::unique_ptr<raft::rpc> rpc_, std::unique_ptr<raft::failure_detector> fd_) {
-        return std::make_unique<sb_server>(id, std::move(sm), std::move(rpc_), std::move(fd_));
+    static std::unique_ptr<sb_server> create(raft::server_id id, std::unique_ptr<raft::state_machine> sm, std::unique_ptr<raft::rpc> rpc_, std::unique_ptr<raft::failure_detector> fd_, std::vector<raft::config_member> members) {
+        return std::make_unique<sb_server>(id, std::move(sm), std::move(rpc_), std::move(fd_), members);
     }
      
     co_context::task<> receive(raft::server_id from, raft::rpc_message msg) {
@@ -197,4 +202,6 @@ private:
 
     raft::index_t _apply_idx = 0;
     
+    // 
+    std::vector<raft::config_member> _members;
 };

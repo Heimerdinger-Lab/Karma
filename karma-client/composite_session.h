@@ -1,12 +1,5 @@
 #pragma once 
-#include "co_context/co/channel.hpp"
 #include "co_context/net/socket.hpp"
-#include "karma-client/client_task.h"
-#include "karma-client/header.h"
-#include "karma-client/payload.h"
-// #include "karma-raft/rpc_message.h"
-#include "scylladb-raft/raft.hh"
-#include "request.h"
 #include "session.h"
 #include <memory>
 #include <optional>
@@ -35,7 +28,7 @@ public:
     composite_session(std::shared_ptr<session> sess)
         : m_session(sess) {};
 
-    co_context::task<void> request_to_one(std::shared_ptr<client::client_task> task) {
+    co_context::task<void> request(std::shared_ptr<client::task> task) {
         auto session = pick_session();
         co_await session->write(task);
     }

@@ -7,7 +7,7 @@
  */
 #include "fsm.hh"
 #include "co_context/task.hpp"
-#include "scylladb-raft/raft.hh"
+#include "karma-raft/raft.hh"
 #include <iostream>
 #include <memory>
 #include <random>

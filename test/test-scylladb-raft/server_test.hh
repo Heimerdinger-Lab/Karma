@@ -2,8 +2,8 @@
 
 // class 
 #include "co_context/co/channel.hpp"
-#include "scylladb-raft/raft.hh"
-#include "scylladb-raft/server.hh"
+#include "karma-raft/raft.hh"
+#include "karma-raft/server.hh"
 #include <cstdint>
 #include <functional>
 #include <iostream>

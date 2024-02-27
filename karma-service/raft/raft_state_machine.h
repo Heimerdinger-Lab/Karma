@@ -1,7 +1,9 @@
 #pragma once
 // #include "karma-raft/server.h"
-#include "scylladb-raft/server.hh"
+#include "karma-raft/server.hh"
 #include <map>
+#include <ratio>
+namespace service {
 class raft_state_machine : public raft::state_machine {
 public:
     ~raft_state_machine() {}
@@ -35,3 +37,4 @@ private:
     }
     std::map<std::string, std::string> m_kv;
 };
+}

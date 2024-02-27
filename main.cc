@@ -9,8 +9,8 @@
 // #include "karma-service/raft/raft_persistence.h"
 // #include "karma-service/raft/raft_rpc.h"
 // #include "karma-service/raft/raft_state_machine.h"
-// #include "scylladb-raft/server.hh"
-// #include "scylladb-raft/simple_server.hh"
+// #include "karma-raft/server.hh"
+// #include "karma-raft/simple_server.hh"
 // #include "temp.h"
 // class config {
 // public:
@@ -61,32 +61,31 @@
 //     ctx.join();
 //     return 0;
 // }
-
-// // using namespace co_context;
-
-// // task<> cycle(int sec, const char *message) {
-// //     while (true) {
-// //         co_await timeout(std::chrono::seconds{sec});
-// //         printf("%s\n", message);
-// //     }
-// // }
-
-// // task<> cycle_abs(int sec, const char *message) {
-// //     auto next = std::chrono::steady_clock::now();
-// //     while (true) {
-// //         next = next + std::chrono::seconds{sec};
-// //         co_await timeout_at(next);
-// //         printf("%s\n", message);
-// //     }
-// // }
-
+#include "karma-service/config.h"
+#include "toml.hpp"
+#include "karma-service/worker.h"
+#include <co_context/io_context.hpp>
+#include <iostream>
 int main() {
-    // io_context ctx;
-    // ctx.co_spawn(cycle(1, "1 sec"));
-    // ctx.co_spawn(cycle_abs(1, "1 sec [abs]"));
-    // ctx.co_spawn(cycle(3, "\t3 sec"));
-    // ctx.start();
-    // ctx.join();
+    co_context::io_context ctx;
+    auto config = toml::parse_file( "/home/tpa/Heimerdinger-Lab/Karma/config/karma.toml" );
+    service::config cfg;
+    cfg.m_listen_ip = config["server"]["listen_addr"].value_or("0.0.0.0");
+    cfg.m_listen_port = config["server"]["listen_port"].value_or(8888);
+    cfg.m_id = config["raft"]["server_id"].value_or(5555);
+    auto members = config["raft"]["members"];
+    // std::cout << "members.size: " << members->size() << std::endl;
+    for (int i = 0; i < config["raft"]["count"].value_or(5); i++) {
+        std::cout << "member[" << i << "]: " << members[i] << std::endl;
+        cfg.m_members[i] = members[i].value_or("value");
+    }
+    ctx.co_spawn([cfg]() -> co_context::task<> {
+        service::worker wk(cfg);
+        wk.start();
+        co_await wk.loop();
+    }());
+    ctx.start();
+    ctx.join();
     return 0;
 }
 

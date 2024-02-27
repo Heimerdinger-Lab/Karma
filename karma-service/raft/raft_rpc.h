@@ -1,33 +1,38 @@
 #pragma once
 // #include "karma-raft/raft.h"
 #include "karma-client/client.h"
-#include "scylladb-raft/raft.hh"
+#include "karma-raft/raft.hh"
+namespace service {
 class raft_rpc : public raft::rpc {
 public:
-    raft_rpc() {
+    raft_rpc(std::shared_ptr<client::client> client)
+        : m_client(client) {
         
     }
     ~raft_rpc(){}
-    // 发送rpc
-    co_context::task<> send_append_entries(raft::server_id id, const raft::append_request& append_request)  {}
-    void send_append_entries_reply(raft::server_id id, const raft::append_reply& reply) override {}
+    co_context::task<raft::snapshot_reply> send_snapshot(raft::server_id server_id, const raft::install_snapshot& snap) override {
+        // 
+    }
+    co_context::task<> send_append_entries(raft::server_id id, const raft::append_request& append_request) override {
+        // m_client->append_entry(raft::server_address start, raft::server_address target, std::string msg)
+    }
+    void send_append_entries_reply(raft::server_id id, const raft::append_reply& reply) override {
+
+    }
     void send_vote_request(raft::server_id id, const raft::vote_request& vote_request) override {}
     void send_vote_reply(raft::server_id id, const raft::vote_reply& vote_reply) override {}
-    void send_timeout_now(raft::server_id, const raft::timeout_now& timeout_now) override {
-        // m_client
+    void send_timeout_now(raft::server_id, const raft::timeout_now& timeout_now) override {}
+    void send_read_quorum(raft::server_id id, const raft::read_quorum& read_quorum) override {}
+    void send_read_quorum_reply(raft::server_id id, const raft::read_quorum_reply& read_quorum_reply) override {}
+    co_context::task<raft::read_barrier_reply> execute_read_barrier_on_leader(raft::server_id id) override {}
+    co_context::task<raft::add_entry_reply> send_add_entry(raft::server_id id, const raft::command& cmd) override {}
+    co_context::task<raft::add_entry_reply> send_modify_config(raft::server_id id, const std::vector<raft::config_member>& add, const std::vector<raft::server_id>& del) override {}
+    void on_configuration_change(raft::server_address_set add,
+            raft::server_address_set del) override {}
+    co_context::task<> abort() override {
 
     }
-    co_context::task<> abort() override {}
-
-    // 接受rpc消息，分发给m_server
-    void append_entries(raft::server_id from, raft::append_request append_request) {
-        _client->append_entries(from, append_request);
-    }
-    void append_entries_reply(raft::server_id from, raft::append_reply reply) {}
-    void request_vote(raft::server_id from, raft::vote_request vote_request) {}
-    void request_vote_reply(raft::server_id from, raft::vote_reply vote_reply) {}
-    void timeout_now_request(raft::server_id from, raft::timeout_now timeout_now) {}
 private:    
-    // client::client m_client;
-
+    std::shared_ptr<client::client> m_client;
 };
+}

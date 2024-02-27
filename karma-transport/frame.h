@@ -11,7 +11,7 @@ namespace transport {
 extern std::atomic_int64_t g_frame_id;
 class frame {
 public:
-    karma_rpc::OperationCode m_operation_code = karma_rpc::OperationCode::OperationCode_PING_PONG; 
+    karma_rpc::OperationCode m_operation_code = karma_rpc::OperationCode::OperationCode_UNKNOW; 
     uint8_t m_flag = 0;
     uint32_t m_seq = 0;
     std::string m_header = "";

@@ -1,7 +1,7 @@
 #pragma once
 // #include "karma-raft/common.h"
 
-#include "scylladb-raft/raft.hh"
+#include "karma-raft/raft.hh"
 #include <string>
 #include <variant>
 namespace client {

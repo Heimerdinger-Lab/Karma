@@ -21,7 +21,7 @@
 #include <string>
 #include <string_view>
 
-#include "scylladb-raft/fsm.hh"
+#include "karma-raft/fsm.hh"
 
 // using seastar::make_lw_shared;
 

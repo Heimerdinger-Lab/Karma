@@ -2,10 +2,12 @@ namespace karma_rpc;
 
 enum OperationCode : short {
     UNKNOW = 0x0000,
-    PING_PONG = 0x0001,
+    ECHO = 0x0001,
     HEARTBEAT = 0x0002,
     APPEND_ENTRY = 0x0003,
-    APPEND_ENTRY_REPLY = 0x0004,
+    VOTE = 0x0004,
+    TIME_OUT = 0x0005,
+    READ_QUORUM = 0x0006,
 }
 
 
@@ -14,24 +16,24 @@ table AppendEntryRequest {
     group_id: int64 = -1 (id: 1);
     // 
     current_term: int64 = -1 (id: 2);
-    leader_id: int64 = -1 (id: 3);
-    prev_log_idx: int64 = -1 (id: 4);
-    prev_log_term: int64 = -1 (id: 5);
-    leader_commit_idx: int64 = -1 (id: 6);
+    prev_log_idx: int64 = -1 (id: 3);
+    prev_log_term: int64 = -1 (id: 4);
+    leader_commit_idx: int64 = -1 (id: 5);
     // 
-    entries: [LogEntry] (id: 7); 
 }
-
+table AppendEntryPayload {
+    entries: [LogEntry] (id: 0);
+}
 table LogEntry {
     term: int64 = -1 (id: 0);
     index: int64 = -1 (id: 1);
     command: string(id: 2);
 }
-table AppendEntryAccepted {
+table AppendEntryRejected {
     non_matching_idx: int64 = -1 (id: 0);
     last_idx: int64 = -1 (id: 1);
 }
-table AppendEntryRejected {
+table AppendEntryAccepted {
     last_new_idx: int64 = -1 (id: 0);
 }
 union AppendEntryResult {
@@ -47,14 +49,60 @@ table AppendEntryReply {
     result: AppendEntryResult;
 }
 
-table PingPongRequest {
+table VoteRequest {
+    from_id: int64 = -1;
+    group_id: int64 = -1;
+    // 
+    current_term: int64 = -1;
+    last_log_idx: int64 = -1;
+    last_log_term: int64 = -1;
+}
+
+table VoteReply {
+    // (from_id, group_id)
+    from_id: int64 = -1;
+    group_id: int64 = -1;
+    // 
+    current_term: int64 = -1;
+    vote_granted: int64 = -1;
+}
+
+table TimeOut {
+    from_id: int64 = -1;
+    group_id: int64 = -1;
+    // 
+    current_term: int64 = -1;
+}
+
+table ReadQuorum {
+    from_id: int64 = -1;
+    group_id: int64 = -1;
+    // 
+    current_term: int64 = -1;
+    leader_commit_idx: int64 = -1;
+    id: int64 = -1;
+}
+table ReadQuorumReply {
+    from_id: int64 = -1;
+    group_id: int64 = -1;
+    // 
+    current_term: int64 = -1;
+    commit_idx: int64 = -1;
+    id: int64 = -1;
+}
+
+
+
+
+
+table EchoRequest {
     from_id: int64 = -1;
     group_id: int64 = -1;
     //
     msg: string;
 }
 
-table PingPongReply {
+table EchoReply {
     from_id: int64 = -1;
     group_id: int64 = -1;
     //

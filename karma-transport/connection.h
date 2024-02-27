@@ -1,5 +1,6 @@
 #pragma once
 #include "co_context/all.hpp"
+#include <cstddef>
 #include <memory>
 #include <optional>
 #include "co_context/co/channel.hpp"
@@ -28,6 +29,9 @@ public:
     };
 
     std::optional<std::shared_ptr<frame>> parse_frame() {
+        if (m_buffer.size() == 0) {
+            return std::nullopt;
+        }
         try {
             frame::check(std::span<char>(m_buffer));
             return frame::parse(std::span<char>(m_buffer));
@@ -52,14 +56,14 @@ public:
             // if (m_buffer.capacity() < 4096) {
             //     m_buffer.reserve(4096);
             // }
-            char buf[512] = {0};
+            char buf[128] = {0};
             std::cout << "to wait: " << m_socket.use_count() << std::endl;
             auto read_size = co_await m_socket->recv(buf);
             std::cout << "end wait, read_size: "  << read_size << std::endl;
             m_buffer.insert(m_buffer.end(), buf, buf + read_size);
             if (read_size == 0) {
                 std::cout << "size = 0" << std::endl;
-                throw frame_error::connection_reset();
+                // throw frame_error::connection_reset();
             } 
         };
     };

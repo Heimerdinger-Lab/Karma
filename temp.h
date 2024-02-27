@@ -1,9 +1,9 @@
 #pragma once
 
 // class 
-#include "scylladb-raft/raft.hh"
-#include "scylladb-raft/server.hh"
-#include "scylladb-raft/simple_server.hh"
+#include "karma-raft/raft.hh"
+#include "karma-raft/server.hh"
+#include "karma-raft/simple_server.hh"
 #include <cstdint>
 #include <functional>
 #include <iostream>

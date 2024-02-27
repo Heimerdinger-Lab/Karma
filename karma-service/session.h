@@ -2,10 +2,12 @@
 #include "co_context/co/channel.hpp"
 #include "co_context/io_context.hpp"
 #include "co_context/task.hpp"
-#include "karma-service/handler/handler.h"
+#include "karma-client/tasks/echo_task.h"
+// #include "karma-service/handler/handler.h"
 #include "karma-transport/connection.h"
 #include "karma-transport/frame.h"
 #include "protocol/rpc_generated.h"
+#include "karma-raft/simple_server.hh"
 #include <memory>
 namespace service {
 class session {
@@ -22,7 +24,7 @@ public:
     };
     co_context::task<> process0() {
         auto conn = std::make_shared<transport::connection>(m_socket, m_inet_address.to_ip(), m_inet_address.port());
-        auto channel = std::make_shared<co_context::channel<std::shared_ptr<transport::frame>>>();
+        auto channel = std::make_shared<co_context::channel<std::shared_ptr<transport::frame>, 1024>>();
         co_context::co_spawn(read_loop(channel, conn));
         co_context::co_spawn(write_loop(channel, conn));
         co_return;
@@ -38,7 +40,7 @@ public:
         // write loop时出错，退出循环
         return true;
     }
-    co_context::task<void> read_loop(std::shared_ptr<co_context::channel<std::shared_ptr<transport::frame>>> channel, std::shared_ptr<transport::connection> conn) {
+    co_context::task<void> read_loop(std::shared_ptr<co_context::channel<std::shared_ptr<transport::frame>, 1024>> channel, std::shared_ptr<transport::connection> conn) {
         while (true) {
             std::cout << "????" << std::endl;
             std::shared_ptr<transport::frame> f;
@@ -50,26 +52,39 @@ public:
             printf("f.header = %p, count = %ld\n", f->m_header.data(), f.use_count());
             // std::cout << "!!!!: " << f->m_header.size() <<  std::endl;
             if (f->is_request()) { 
-                if (f->m_operation_code == karma_rpc::OperationCode_PING_PONG) {
-                    // auto handler = ping_pong_handler(f, channel);
-                    std::shared_ptr<ping_pong_handler> handler = std::make_shared<ping_pong_handler>(f, channel);
-                    // co_context::co_spawn(handler->call()); 
-                    co_await handler->call();
-                }
+                std::cout << "i receive request" << std::endl;
+                if (f->m_operation_code == karma_rpc::OperationCode_ECHO) {
+                    // co_context::co_spawn([f, channel]() -> co_context::task<> {
+                    //     auto echo_req = client::echo_request::from_frame(f);
+                    //     std::cout << "echo_req.msg: " << echo_req->msg() << std::endl;
+                    //     client::echo_reply reply(0, 0, "reply from tianpingan");
+                    //     co_await channel->release(reply.gen_frame());
+                    //     co_return;
+                    // }());
+                     {
+                        auto echo_req = client::echo_request::from_frame(f);
+                        std::cout << "echo_req.msg: " << echo_req->msg() << std::endl;
+                        client::echo_reply reply(0, 0, "reply from tianpingan of (" + echo_req->msg() + ").");
+                        co_await channel->release(reply.gen_frame());
+                        // co_return;
+                     }
+                } 
             }
         }
     }
-    co_context::task<void> write_loop(std::shared_ptr<co_context::channel<std::shared_ptr<transport::frame>>> channel, std::shared_ptr<transport::connection> conn) {
+    co_context::task<void> write_loop(std::shared_ptr<co_context::channel<std::shared_ptr<transport::frame>, 1024>> channel, std::shared_ptr<transport::connection> conn) {
         // response loop
         while (true) {
             auto f = co_await channel->acquire();
             std::cout << "to write a frame" << std::endl;
             // co_context::co_spawn(conn_write(conn, f));
-            co_await conn_write(conn, f);
+            // co_await conn_write(conn, f);
+            co_await conn->write_frame(f);
         }
     }
 private:    
     co_context::inet_address m_inet_address;
     std::shared_ptr<co_context::socket> m_socket;
+    std::shared_ptr<sb_server> m_raft;
 };  
 };
