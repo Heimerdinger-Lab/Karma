@@ -18,6 +18,9 @@ namespace karma_rpc {
 struct AppendEntryRequest;
 struct AppendEntryRequestBuilder;
 
+struct AppendEntryPayload;
+struct AppendEntryPayloadBuilder;
+
 struct LogEntry;
 struct LogEntryBuilder;
 
@@ -51,6 +54,24 @@ struct EchoRequestBuilder;
 struct EchoReply;
 struct EchoReplyBuilder;
 
+struct Command;
+struct CommandBuilder;
+
+struct Batch;
+struct BatchBuilder;
+
+struct ReadRequest;
+struct ReadRequestBuilder;
+
+struct ReadReply;
+struct ReadReplyBuilder;
+
+struct WriteRequest;
+struct WriteRequestBuilder;
+
+struct WriteReply;
+struct WriteReplyBuilder;
+
 enum OperationCode : int16_t {
   OperationCode_UNKNOW = 0,
   OperationCode_ECHO = 1,
@@ -59,11 +80,13 @@ enum OperationCode : int16_t {
   OperationCode_VOTE = 4,
   OperationCode_TIME_OUT = 5,
   OperationCode_READ_QUORUM = 6,
+  OperationCode_READ_TASK = 7,
+  OperationCode_WRITE_TASK = 8,
   OperationCode_MIN = OperationCode_UNKNOW,
-  OperationCode_MAX = OperationCode_READ_QUORUM
+  OperationCode_MAX = OperationCode_WRITE_TASK
 };
 
-inline const OperationCode (&EnumValuesOperationCode())[7] {
+inline const OperationCode (&EnumValuesOperationCode())[9] {
   static const OperationCode values[] = {
     OperationCode_UNKNOW,
     OperationCode_ECHO,
@@ -71,13 +94,15 @@ inline const OperationCode (&EnumValuesOperationCode())[7] {
     OperationCode_APPEND_ENTRY,
     OperationCode_VOTE,
     OperationCode_TIME_OUT,
-    OperationCode_READ_QUORUM
+    OperationCode_READ_QUORUM,
+    OperationCode_READ_TASK,
+    OperationCode_WRITE_TASK
   };
   return values;
 }
 
 inline const char * const *EnumNamesOperationCode() {
-  static const char * const names[8] = {
+  static const char * const names[10] = {
     "UNKNOW",
     "ECHO",
     "HEARTBEAT",
@@ -85,13 +110,15 @@ inline const char * const *EnumNamesOperationCode() {
     "VOTE",
     "TIME_OUT",
     "READ_QUORUM",
+    "READ_TASK",
+    "WRITE_TASK",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameOperationCode(OperationCode e) {
-  if (::flatbuffers::IsOutRange(e, OperationCode_UNKNOW, OperationCode_READ_QUORUM)) return "";
+  if (::flatbuffers::IsOutRange(e, OperationCode_UNKNOW, OperationCode_WRITE_TASK)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesOperationCode()[index];
 }
@@ -144,6 +171,39 @@ template<> struct AppendEntryResultTraits<karma_rpc::AppendEntryRejected> {
 bool VerifyAppendEntryResult(::flatbuffers::Verifier &verifier, const void *obj, AppendEntryResult type);
 bool VerifyAppendEntryResultVector(::flatbuffers::Verifier &verifier, const ::flatbuffers::Vector<::flatbuffers::Offset<void>> *values, const ::flatbuffers::Vector<uint8_t> *types);
 
+enum CommandType : int16_t {
+  CommandType_UNKNOW = 0,
+  CommandType_VALUE = 1,
+  CommandType_DELETE = 2,
+  CommandType_MIN = CommandType_UNKNOW,
+  CommandType_MAX = CommandType_DELETE
+};
+
+inline const CommandType (&EnumValuesCommandType())[3] {
+  static const CommandType values[] = {
+    CommandType_UNKNOW,
+    CommandType_VALUE,
+    CommandType_DELETE
+  };
+  return values;
+}
+
+inline const char * const *EnumNamesCommandType() {
+  static const char * const names[4] = {
+    "UNKNOW",
+    "VALUE",
+    "DELETE",
+    nullptr
+  };
+  return names;
+}
+
+inline const char *EnumNameCommandType(CommandType e) {
+  if (::flatbuffers::IsOutRange(e, CommandType_UNKNOW, CommandType_DELETE)) return "";
+  const size_t index = static_cast<size_t>(e);
+  return EnumNamesCommandType()[index];
+}
+
 struct AppendEntryRequest FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef AppendEntryRequestBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
@@ -152,8 +212,7 @@ struct AppendEntryRequest FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table
     VT_CURRENT_TERM = 8,
     VT_PREV_LOG_IDX = 10,
     VT_PREV_LOG_TERM = 12,
-    VT_LEADER_COMMIT_IDX = 14,
-    VT_ENTRIES = 16
+    VT_LEADER_COMMIT_IDX = 14
   };
   int64_t from_id() const {
     return GetField<int64_t>(VT_FROM_ID, -1LL);
@@ -173,9 +232,6 @@ struct AppendEntryRequest FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table
   int64_t leader_commit_idx() const {
     return GetField<int64_t>(VT_LEADER_COMMIT_IDX, -1LL);
   }
-  const ::flatbuffers::Vector<::flatbuffers::Offset<karma_rpc::LogEntry>> *entries() const {
-    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<karma_rpc::LogEntry>> *>(VT_ENTRIES);
-  }
   bool Verify(::flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<int64_t>(verifier, VT_FROM_ID, 8) &&
@@ -184,9 +240,6 @@ struct AppendEntryRequest FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table
            VerifyField<int64_t>(verifier, VT_PREV_LOG_IDX, 8) &&
            VerifyField<int64_t>(verifier, VT_PREV_LOG_TERM, 8) &&
            VerifyField<int64_t>(verifier, VT_LEADER_COMMIT_IDX, 8) &&
-           VerifyOffset(verifier, VT_ENTRIES) &&
-           verifier.VerifyVector(entries()) &&
-           verifier.VerifyVectorOfTables(entries()) &&
            verifier.EndTable();
   }
 };
@@ -213,9 +266,6 @@ struct AppendEntryRequestBuilder {
   void add_leader_commit_idx(int64_t leader_commit_idx) {
     fbb_.AddElement<int64_t>(AppendEntryRequest::VT_LEADER_COMMIT_IDX, leader_commit_idx, -1LL);
   }
-  void add_entries(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<karma_rpc::LogEntry>>> entries) {
-    fbb_.AddOffset(AppendEntryRequest::VT_ENTRIES, entries);
-  }
   explicit AppendEntryRequestBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -234,8 +284,7 @@ inline ::flatbuffers::Offset<AppendEntryRequest> CreateAppendEntryRequest(
     int64_t current_term = -1LL,
     int64_t prev_log_idx = -1LL,
     int64_t prev_log_term = -1LL,
-    int64_t leader_commit_idx = -1LL,
-    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<karma_rpc::LogEntry>>> entries = 0) {
+    int64_t leader_commit_idx = -1LL) {
   AppendEntryRequestBuilder builder_(_fbb);
   builder_.add_leader_commit_idx(leader_commit_idx);
   builder_.add_prev_log_term(prev_log_term);
@@ -243,28 +292,58 @@ inline ::flatbuffers::Offset<AppendEntryRequest> CreateAppendEntryRequest(
   builder_.add_current_term(current_term);
   builder_.add_group_id(group_id);
   builder_.add_from_id(from_id);
+  return builder_.Finish();
+}
+
+struct AppendEntryPayload FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef AppendEntryPayloadBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ENTRIES = 4
+  };
+  const ::flatbuffers::Vector<::flatbuffers::Offset<karma_rpc::LogEntry>> *entries() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<karma_rpc::LogEntry>> *>(VT_ENTRIES);
+  }
+  bool Verify(::flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_ENTRIES) &&
+           verifier.VerifyVector(entries()) &&
+           verifier.VerifyVectorOfTables(entries()) &&
+           verifier.EndTable();
+  }
+};
+
+struct AppendEntryPayloadBuilder {
+  typedef AppendEntryPayload Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_entries(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<karma_rpc::LogEntry>>> entries) {
+    fbb_.AddOffset(AppendEntryPayload::VT_ENTRIES, entries);
+  }
+  explicit AppendEntryPayloadBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<AppendEntryPayload> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<AppendEntryPayload>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<AppendEntryPayload> CreateAppendEntryPayload(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<karma_rpc::LogEntry>>> entries = 0) {
+  AppendEntryPayloadBuilder builder_(_fbb);
   builder_.add_entries(entries);
   return builder_.Finish();
 }
 
-inline ::flatbuffers::Offset<AppendEntryRequest> CreateAppendEntryRequestDirect(
+inline ::flatbuffers::Offset<AppendEntryPayload> CreateAppendEntryPayloadDirect(
     ::flatbuffers::FlatBufferBuilder &_fbb,
-    int64_t from_id = -1LL,
-    int64_t group_id = -1LL,
-    int64_t current_term = -1LL,
-    int64_t prev_log_idx = -1LL,
-    int64_t prev_log_term = -1LL,
-    int64_t leader_commit_idx = -1LL,
     const std::vector<::flatbuffers::Offset<karma_rpc::LogEntry>> *entries = nullptr) {
   auto entries__ = entries ? _fbb.CreateVector<::flatbuffers::Offset<karma_rpc::LogEntry>>(*entries) : 0;
-  return karma_rpc::CreateAppendEntryRequest(
+  return karma_rpc::CreateAppendEntryPayload(
       _fbb,
-      from_id,
-      group_id,
-      current_term,
-      prev_log_idx,
-      prev_log_term,
-      leader_commit_idx,
       entries__);
 }
 
@@ -1065,6 +1144,379 @@ inline ::flatbuffers::Offset<EchoReply> CreateEchoReplyDirect(
       from_id,
       group_id,
       msg__);
+}
+
+struct Command FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef CommandBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_TYPE = 4,
+    VT_KEY = 6,
+    VT_VALUE = 8
+  };
+  karma_rpc::CommandType type() const {
+    return static_cast<karma_rpc::CommandType>(GetField<int16_t>(VT_TYPE, 0));
+  }
+  const ::flatbuffers::String *key() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_KEY);
+  }
+  const ::flatbuffers::String *value() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_VALUE);
+  }
+  bool Verify(::flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<int16_t>(verifier, VT_TYPE, 2) &&
+           VerifyOffset(verifier, VT_KEY) &&
+           verifier.VerifyString(key()) &&
+           VerifyOffset(verifier, VT_VALUE) &&
+           verifier.VerifyString(value()) &&
+           verifier.EndTable();
+  }
+};
+
+struct CommandBuilder {
+  typedef Command Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_type(karma_rpc::CommandType type) {
+    fbb_.AddElement<int16_t>(Command::VT_TYPE, static_cast<int16_t>(type), 0);
+  }
+  void add_key(::flatbuffers::Offset<::flatbuffers::String> key) {
+    fbb_.AddOffset(Command::VT_KEY, key);
+  }
+  void add_value(::flatbuffers::Offset<::flatbuffers::String> value) {
+    fbb_.AddOffset(Command::VT_VALUE, value);
+  }
+  explicit CommandBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<Command> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<Command>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<Command> CreateCommand(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    karma_rpc::CommandType type = karma_rpc::CommandType_UNKNOW,
+    ::flatbuffers::Offset<::flatbuffers::String> key = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> value = 0) {
+  CommandBuilder builder_(_fbb);
+  builder_.add_value(value);
+  builder_.add_key(key);
+  builder_.add_type(type);
+  return builder_.Finish();
+}
+
+inline ::flatbuffers::Offset<Command> CreateCommandDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    karma_rpc::CommandType type = karma_rpc::CommandType_UNKNOW,
+    const char *key = nullptr,
+    const char *value = nullptr) {
+  auto key__ = key ? _fbb.CreateString(key) : 0;
+  auto value__ = value ? _fbb.CreateString(value) : 0;
+  return karma_rpc::CreateCommand(
+      _fbb,
+      type,
+      key__,
+      value__);
+}
+
+struct Batch FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef BatchBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_COMMANDS = 4
+  };
+  const ::flatbuffers::Vector<::flatbuffers::Offset<karma_rpc::Command>> *commands() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<karma_rpc::Command>> *>(VT_COMMANDS);
+  }
+  bool Verify(::flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_COMMANDS) &&
+           verifier.VerifyVector(commands()) &&
+           verifier.VerifyVectorOfTables(commands()) &&
+           verifier.EndTable();
+  }
+};
+
+struct BatchBuilder {
+  typedef Batch Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_commands(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<karma_rpc::Command>>> commands) {
+    fbb_.AddOffset(Batch::VT_COMMANDS, commands);
+  }
+  explicit BatchBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<Batch> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<Batch>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<Batch> CreateBatch(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<karma_rpc::Command>>> commands = 0) {
+  BatchBuilder builder_(_fbb);
+  builder_.add_commands(commands);
+  return builder_.Finish();
+}
+
+inline ::flatbuffers::Offset<Batch> CreateBatchDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    const std::vector<::flatbuffers::Offset<karma_rpc::Command>> *commands = nullptr) {
+  auto commands__ = commands ? _fbb.CreateVector<::flatbuffers::Offset<karma_rpc::Command>>(*commands) : 0;
+  return karma_rpc::CreateBatch(
+      _fbb,
+      commands__);
+}
+
+struct ReadRequest FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef ReadRequestBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_GROUP_ID = 4,
+    VT_KEY = 6
+  };
+  int64_t group_id() const {
+    return GetField<int64_t>(VT_GROUP_ID, -1LL);
+  }
+  const ::flatbuffers::String *key() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_KEY);
+  }
+  bool Verify(::flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<int64_t>(verifier, VT_GROUP_ID, 8) &&
+           VerifyOffset(verifier, VT_KEY) &&
+           verifier.VerifyString(key()) &&
+           verifier.EndTable();
+  }
+};
+
+struct ReadRequestBuilder {
+  typedef ReadRequest Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_group_id(int64_t group_id) {
+    fbb_.AddElement<int64_t>(ReadRequest::VT_GROUP_ID, group_id, -1LL);
+  }
+  void add_key(::flatbuffers::Offset<::flatbuffers::String> key) {
+    fbb_.AddOffset(ReadRequest::VT_KEY, key);
+  }
+  explicit ReadRequestBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<ReadRequest> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<ReadRequest>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<ReadRequest> CreateReadRequest(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    int64_t group_id = -1LL,
+    ::flatbuffers::Offset<::flatbuffers::String> key = 0) {
+  ReadRequestBuilder builder_(_fbb);
+  builder_.add_group_id(group_id);
+  builder_.add_key(key);
+  return builder_.Finish();
+}
+
+inline ::flatbuffers::Offset<ReadRequest> CreateReadRequestDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    int64_t group_id = -1LL,
+    const char *key = nullptr) {
+  auto key__ = key ? _fbb.CreateString(key) : 0;
+  return karma_rpc::CreateReadRequest(
+      _fbb,
+      group_id,
+      key__);
+}
+
+struct ReadReply FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef ReadReplyBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_SUCCESS = 4,
+    VT_VALUE = 6
+  };
+  bool success() const {
+    return GetField<uint8_t>(VT_SUCCESS, 0) != 0;
+  }
+  const ::flatbuffers::String *value() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_VALUE);
+  }
+  bool Verify(::flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint8_t>(verifier, VT_SUCCESS, 1) &&
+           VerifyOffset(verifier, VT_VALUE) &&
+           verifier.VerifyString(value()) &&
+           verifier.EndTable();
+  }
+};
+
+struct ReadReplyBuilder {
+  typedef ReadReply Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_success(bool success) {
+    fbb_.AddElement<uint8_t>(ReadReply::VT_SUCCESS, static_cast<uint8_t>(success), 0);
+  }
+  void add_value(::flatbuffers::Offset<::flatbuffers::String> value) {
+    fbb_.AddOffset(ReadReply::VT_VALUE, value);
+  }
+  explicit ReadReplyBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<ReadReply> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<ReadReply>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<ReadReply> CreateReadReply(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    bool success = false,
+    ::flatbuffers::Offset<::flatbuffers::String> value = 0) {
+  ReadReplyBuilder builder_(_fbb);
+  builder_.add_value(value);
+  builder_.add_success(success);
+  return builder_.Finish();
+}
+
+inline ::flatbuffers::Offset<ReadReply> CreateReadReplyDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    bool success = false,
+    const char *value = nullptr) {
+  auto value__ = value ? _fbb.CreateString(value) : 0;
+  return karma_rpc::CreateReadReply(
+      _fbb,
+      success,
+      value__);
+}
+
+struct WriteRequest FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef WriteRequestBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_GROUP_ID = 4,
+    VT_KEY = 6,
+    VT_VALUE = 8
+  };
+  int64_t group_id() const {
+    return GetField<int64_t>(VT_GROUP_ID, -1LL);
+  }
+  const ::flatbuffers::String *key() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_KEY);
+  }
+  const ::flatbuffers::String *value() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_VALUE);
+  }
+  bool Verify(::flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<int64_t>(verifier, VT_GROUP_ID, 8) &&
+           VerifyOffset(verifier, VT_KEY) &&
+           verifier.VerifyString(key()) &&
+           VerifyOffset(verifier, VT_VALUE) &&
+           verifier.VerifyString(value()) &&
+           verifier.EndTable();
+  }
+};
+
+struct WriteRequestBuilder {
+  typedef WriteRequest Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_group_id(int64_t group_id) {
+    fbb_.AddElement<int64_t>(WriteRequest::VT_GROUP_ID, group_id, -1LL);
+  }
+  void add_key(::flatbuffers::Offset<::flatbuffers::String> key) {
+    fbb_.AddOffset(WriteRequest::VT_KEY, key);
+  }
+  void add_value(::flatbuffers::Offset<::flatbuffers::String> value) {
+    fbb_.AddOffset(WriteRequest::VT_VALUE, value);
+  }
+  explicit WriteRequestBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<WriteRequest> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<WriteRequest>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<WriteRequest> CreateWriteRequest(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    int64_t group_id = -1LL,
+    ::flatbuffers::Offset<::flatbuffers::String> key = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> value = 0) {
+  WriteRequestBuilder builder_(_fbb);
+  builder_.add_group_id(group_id);
+  builder_.add_value(value);
+  builder_.add_key(key);
+  return builder_.Finish();
+}
+
+inline ::flatbuffers::Offset<WriteRequest> CreateWriteRequestDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    int64_t group_id = -1LL,
+    const char *key = nullptr,
+    const char *value = nullptr) {
+  auto key__ = key ? _fbb.CreateString(key) : 0;
+  auto value__ = value ? _fbb.CreateString(value) : 0;
+  return karma_rpc::CreateWriteRequest(
+      _fbb,
+      group_id,
+      key__,
+      value__);
+}
+
+struct WriteReply FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef WriteReplyBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_SUCCESS = 4
+  };
+  bool success() const {
+    return GetField<uint8_t>(VT_SUCCESS, 0) != 0;
+  }
+  bool Verify(::flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint8_t>(verifier, VT_SUCCESS, 1) &&
+           verifier.EndTable();
+  }
+};
+
+struct WriteReplyBuilder {
+  typedef WriteReply Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_success(bool success) {
+    fbb_.AddElement<uint8_t>(WriteReply::VT_SUCCESS, static_cast<uint8_t>(success), 0);
+  }
+  explicit WriteReplyBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<WriteReply> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<WriteReply>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<WriteReply> CreateWriteReply(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    bool success = false) {
+  WriteReplyBuilder builder_(_fbb);
+  builder_.add_success(success);
+  return builder_.Finish();
 }
 
 inline bool VerifyAppendEntryResult(::flatbuffers::Verifier &verifier, const void *obj, AppendEntryResult type) {

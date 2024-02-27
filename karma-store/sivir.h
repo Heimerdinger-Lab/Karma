@@ -3,11 +3,14 @@
 #include "karma-store/buf/aligned_buf_reader.h"
 #include "karma-store/buf/aligned_buf_writer.h"
 #include "karma-util/sslice.h"
+#include "karma-cache/s3fifo.h"
 #include "options.h"
+#include "protocol/rpc_generated.h"
 #include "wal.h"
 #include "write_window.h"
 #include <cassert>
 #include <cstdint>
+#include <flatbuffers/flatbuffer_builder.h>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -69,32 +72,59 @@ public:
         // 调用add_record写wal
         // 得到record_pos
         // 更新memtable和cache
-        std::string sb("123");
-        auto pos = add_record(sb);
-        if (pos.record_size != 11) {
-            std::cout << "record_size = " << pos.record_size << std::endl;
-            assert(pos.record_size == 11);
-        }
+        // std::string sb("123");
+        // auto pos = add_record(sb);
+        // if (pos.record_size != 11) {
+        //     std::cout << "record_size = " << pos.record_size << std::endl;
+        //     assert(pos.record_size == 11);
+        // }
         
-        // update the memtable and the cached
-        // std::cout << "pos = " << pos.wal_offset << std::endl;
-        // get_record(pos.wal_offset, pos.record_size);
-        auto seg = m_wal.segment_file_of(pos.wal_offset);
-        std::string sssb(3, ' ');
-        sslice sa(sssb);
-        seg->read_exact_at(&sa, 3, pos.wal_offset + 8);
-        assert(sssb.compare("123") == 0);
+        // // update the memtable and the cached
+        // // std::cout << "pos = " << pos.wal_offset << std::endl;
+        // // get_record(pos.wal_offset, pos.record_size);
+        // auto seg = m_wal.segment_file_of(pos.wal_offset);
+        // std::string sssb(3, ' ');
+        // sslice sa(sssb);
+        // seg->read_exact_at(&sa, 3, pos.wal_offset + 8);
+        // assert(sssb.compare("123") == 0);
+        flatbuffers::FlatBufferBuilder cmd_builder;
+        auto key_ = cmd_builder.CreateString(key);
+        auto value_ = cmd_builder.CreateString(value);
+        auto cmd = karma_rpc::CreateCommand(cmd_builder, karma_rpc::CommandType_VALUE, key_, value_);
+        cmd_builder.Finish(cmd);
+        char* buffer = (char *)cmd_builder.GetBufferPointer();
+        auto pos = add_record(buffer);
+        m_map[key] = pos;
+        m_cached.write(key, value);
     }
     void del(std::string key) {
         // 
+        flatbuffers::FlatBufferBuilder cmd_builder;
+        auto key_ = cmd_builder.CreateString(key);
+        auto cmd = karma_rpc::CreateCommand(cmd_builder, karma_rpc::CommandType_DELETE, key_);
+        cmd_builder.Finish(cmd);
+        char* buffer = (char *)cmd_builder.GetBufferPointer();
+        auto pos = add_record(buffer);
+        m_map.erase(key);
+        m_cached.erase(key);
     }
-    void get(std::string key, std::string *value, int idx) {
-        get_record(11 * idx, 11);
-        // check the cached
-        // search the memtable 
-        // lookup in the wal
+    void get(std::string key, std::string *value) {
+        auto vv = m_cached.read(key);
+        if (vv.has_value()) {
+            value->append(vv.value().data(), vv.value().size());
+            return;
+        }
+        if (m_map.contains(key)) {
+            auto pos = get_record(m_map[key].wal_offset, m_map[key].record_size);
+            auto header = flatbuffers::GetRoot<karma_rpc::Command>(pos.m_value.data() + 8);
+            value->append(header->value()->str().data(), header->value()->str().size());
+            m_cached.write(key, *value);
+        } else {
+            // sb
+        }
     }
 public:
+    
     /*
         1. 读请求
             1.1 m_buf表示读到的数据
@@ -426,7 +456,8 @@ public:
     // 
     std::map<std::string, record_pos> m_map;
     // 
-    std::map<std::string, std::string> m_cached;
+    // std::map<std::string, std::string> m_cached;
+    cache::s3fifo m_cached;
     std::thread m_worker;
     std::thread m_compactor;
     write_window m_window;

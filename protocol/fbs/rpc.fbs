@@ -8,6 +8,8 @@ enum OperationCode : short {
     VOTE = 0x0004,
     TIME_OUT = 0x0005,
     READ_QUORUM = 0x0006,
+    READ_TASK = 0x0007,
+    WRITE_TASK = 0x0008,
 }
 
 
@@ -91,10 +93,6 @@ table ReadQuorumReply {
     id: int64 = -1;
 }
 
-
-
-
-
 table EchoRequest {
     from_id: int64 = -1;
     group_id: int64 = -1;
@@ -107,4 +105,38 @@ table EchoReply {
     group_id: int64 = -1;
     //
     msg: string;
+}
+
+// 
+enum CommandType : short {
+    UNKNOW = 0x0000,
+    VALUE = 0x0001,
+    DELETE = 0x0002,
+}
+
+table Command {
+    type: CommandType = UNKNOW;
+    key: string;
+    value: string;
+}
+table Batch {
+    commands: [Command];
+}
+
+// 
+table ReadRequest {
+    group_id: int64 = -1;
+    key: string;
+}
+table ReadReply {
+    success: bool;
+    value: string;
+}
+table WriteRequest {
+    group_id: int64 = -1;
+    key: string;
+    value: string;
+}
+table WriteReply {
+    success: bool;
 }
