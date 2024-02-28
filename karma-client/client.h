@@ -39,54 +39,54 @@ public:
         co_return reply;
     } 
     co_context::task<> append_entry(raft::server_id start, raft::server_id target, const raft::append_request& append_request) {
-        std::shared_ptr<append_entry_request> req = std::make_shared<append_entry_request>(start, 0, append_request.current_term, append_request.prev_log_idx, append_request.prev_log_term, append_request.leader_commit_idx);
+        std::shared_ptr<append_entry_request> req = std::make_shared<append_entry_request>(start, 0, append_request);
         auto session = co_await m_session_manager->get_composite_session(m_members[target].first, m_members[target].second);
         if (session.has_value()) {
             co_await session.value()->request(req);
         }
     } 
     co_context::task<> append_entry_reply_(raft::server_id start, raft::server_id target, const raft::append_reply& reply) {
-        std::shared_ptr<append_entry_reply> req = std::make_shared<append_entry_reply>(start, 0, reply.current_term, reply.commit_idx, reply.result);
+        std::shared_ptr<append_entry_reply> req = std::make_shared<append_entry_reply>(start, 0, reply);
         auto session = co_await m_session_manager->get_composite_session(m_members[target].first, m_members[target].second);
         if (session.has_value()) {
             co_await session.value()->request(req);
         }
     } 
     co_context::task<> vote_request_(raft::server_id start, raft::server_id target, const raft::vote_request& vote_request_) {
-        std::shared_ptr<vote_request> req = std::make_shared<vote_request>(start, 0, vote_request_.current_term, vote_request_.last_log_idx, vote_request_.last_log_term, vote_request_.is_prevote, vote_request_.force);
+        std::shared_ptr<vote_request> req = std::make_shared<vote_request>(start, 0, vote_request_);
         auto session = co_await m_session_manager->get_composite_session(m_members[target].first, m_members[target].second);
         if (session.has_value()) {
             co_await session.value()->request(req);
         }
     } 
-    // co_context::task<> vote_reply_(raft::server_id start, raft::server_id target, const raft::vote_reply& vote_reply) {
-    //     std::shared_ptr<vote_reply> req = std::make_shared<vote_reply>(start, 0, msg);
-    //     auto session = co_await m_session_manager->get_composite_session(m_members[target].first, m_members[target].second);
-    //     if (session.has_value()) {
-    //         co_await session.value()->request(req);
-    //     }
-    // } 
-    // co_context::task<> time_out(raft::server_id start, raft::server_id target, const raft::timeout_now& timeout_now) {
-    //     std::shared_ptr<time_out_request> req = std::make_shared<time_out_request>(start, 0, msg);
-    //     auto session = co_await m_session_manager->get_composite_session(m_members[target].first, m_members[target].second);
-    //     if (session.has_value()) {
-    //         co_await session.value()->request(req);
-    //     }
-    // } 
-    // co_context::task<> read_quorum(raft::server_id start, raft::server_id target, const raft::read_quorum& read_quorum) {
-    //     std::shared_ptr<read_quorum_request> req = std::make_shared<read_quorum_request>(start, 0, msg);
-    //     auto session = co_await m_session_manager->get_composite_session(m_members[target].first, m_members[target].second);
-    //     if (session.has_value()) {
-    //         co_await session.value()->request(req);
-    //     }
-    // } 
-    // co_context::task<> read_quorum_reply_(raft::server_id start, raft::server_id target, const raft::read_quorum_reply& read_quorum_reply) {
-    //     std::shared_ptr<read_quorum_reply> req = std::make_shared<read_quorum_reply>(start, 0, msg);
-    //     auto session = co_await m_session_manager->get_composite_session(m_members[target].first, m_members[target].second);
-    //     if (session.has_value()) {
-    //         co_await session.value()->request(req);
-    //     }
-    // } 
+    co_context::task<> vote_reply_(raft::server_id start, raft::server_id target, const raft::vote_reply& vote_reply_) {
+        std::shared_ptr<vote_reply> req = std::make_shared<vote_reply>(start, 0, vote_reply_);
+        auto session = co_await m_session_manager->get_composite_session(m_members[target].first, m_members[target].second);
+        if (session.has_value()) {
+            co_await session.value()->request(req);
+        }
+    } 
+    co_context::task<> time_out(raft::server_id start, raft::server_id target, const raft::timeout_now& timeout_now_) {
+        std::shared_ptr<time_out_request> req = std::make_shared<time_out_request>(start, 0, timeout_now_);
+        auto session = co_await m_session_manager->get_composite_session(m_members[target].first, m_members[target].second);
+        if (session.has_value()) {
+            co_await session.value()->request(req);
+        }
+    } 
+    co_context::task<> read_quorum(raft::server_id start, raft::server_id target, const raft::read_quorum& read_quorum) {
+        std::shared_ptr<read_quorum_request> req = std::make_shared<read_quorum_request>(start, 0, read_quorum);
+        auto session = co_await m_session_manager->get_composite_session(m_members[target].first, m_members[target].second);
+        if (session.has_value()) {
+            co_await session.value()->request(req);
+        }
+    } 
+    co_context::task<> read_quorum_reply_(raft::server_id start, raft::server_id target, const raft::read_quorum_reply& read_quorum_reply_) {
+        std::shared_ptr<read_quorum_reply> req = std::make_shared<read_quorum_reply>(start, 0, read_quorum_reply_);
+        auto session = co_await m_session_manager->get_composite_session(m_members[target].first, m_members[target].second);
+        if (session.has_value()) {
+            co_await session.value()->request(req);
+        }
+    } 
 
     // for outer
     co_context::task<std::shared_ptr<read_reply>> cli_read(raft::server_id group_id, raft::server_id target, std::string key) {

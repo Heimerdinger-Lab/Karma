@@ -9,7 +9,7 @@ co_context::task<> cli() {
     raft::server_address from(1, "127.0.0.1:6666");
     raft::server_address target(1, "127.0.0.1:6666");
     for (int i = 0; i < 1024 * 1024 ; i++) {
-        auto reply = co_await ccc.echo(from, target, "Hello From Tianpingan, idx: " + std::to_string(i));
+        auto reply = co_await ccc.echo(0, 1, "Hello From Tianpingan, idx: " + std::to_string(i));
         std::cout << "cli receive the reply: " << reply->msg() << std::endl;
     }
 }

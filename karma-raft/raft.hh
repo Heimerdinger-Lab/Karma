@@ -617,22 +617,22 @@ public:
     virtual co_context::task<> send_append_entries(server_id id, const append_request& append_request) = 0;
 
     // Send a reply to an append_request.
-    virtual void send_append_entries_reply(server_id id, const append_reply& reply) = 0;
+    virtual co_context::task<> send_append_entries_reply(server_id id, const append_reply& reply) = 0;
 
     // Send a vote request.
-    virtual void send_vote_request(server_id id, const vote_request& vote_request) = 0;
+    virtual co_context::task<> send_vote_request(server_id id, const vote_request& vote_request) = 0;
 
     // Sends a reply to a vote request.
-    virtual void send_vote_reply(server_id id, const vote_reply& vote_reply) = 0;
+    virtual co_context::task<> send_vote_reply(server_id id, const vote_reply& vote_reply) = 0;
 
     // Send a request to start leader election.
-    virtual void send_timeout_now(server_id, const timeout_now& timeout_now) = 0;
+    virtual co_context::task<> send_timeout_now(server_id, const timeout_now& timeout_now) = 0;
 
     // Send a read barrier request.
-    virtual void send_read_quorum(server_id id, const read_quorum& read_quorum) = 0;
+    virtual co_context::task<> send_read_quorum(server_id id, const read_quorum& read_quorum) = 0;
 
     // Send a reply to read barrier request.
-    virtual void send_read_quorum_reply(server_id id, const read_quorum_reply& read_quorum_reply) = 0;
+    virtual co_context::task<> send_read_quorum_reply(server_id id, const read_quorum_reply& read_quorum_reply) = 0;
 
     // Forward a read barrier request to the leader.
     // Should throw a raft::transport_error if the target host is unreachable.
