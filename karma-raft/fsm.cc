@@ -611,7 +611,7 @@ void fsm::tick_leader() {
 }
 
 void fsm::tick() {
-    // std::cout << "fsm::tick" << std::endl;
+    std::cout << "fsm::tick" << std::endl;
     _clock.advance();
 
     // auto has_stable_leader = [this]() {

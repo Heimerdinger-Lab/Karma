@@ -13,6 +13,7 @@
 #include <memory>
 #include <optional>
 #include <sys/socket.h>
+#include <utility>
 
 namespace client {
 
@@ -91,7 +92,8 @@ public:
     // for outer
     co_context::task<std::shared_ptr<read_reply>> cli_read(raft::server_id group_id, raft::server_id target, std::string key) {
         std::shared_ptr<co_context::channel<std::shared_ptr<read_reply>>> prom = std::make_shared<co_context::channel<std::shared_ptr<read_reply>>>();
-        std::shared_ptr<read_request> req = std::make_shared<read_request>(group_id, key, prom);
+        std::shared_ptr<read_request> req = std::make_shared<read_request>(group_id, key);
+        req->set_prom(prom);
         auto session = co_await m_session_manager->get_composite_session(m_members[target].first, m_members[target].second);
         co_await session.value()->request(req);
         auto reply = co_await prom->acquire();
@@ -99,17 +101,21 @@ public:
     } 
     co_context::task<std::shared_ptr<write_reply>> cli_write(raft::group_id group_id, raft::server_id target, std::string key, std::string value) {
         std::shared_ptr<co_context::channel<std::shared_ptr<write_reply>>> prom = std::make_shared<co_context::channel<std::shared_ptr<write_reply>>>();
-        std::shared_ptr<write_request> req = std::make_shared<write_request>(group_id, key, value, prom);
+        std::shared_ptr<write_request> req = std::make_shared<write_request>(group_id, key, value);
+        req->set_prom(prom);
         auto session = co_await m_session_manager->get_composite_session(m_members[target].first, m_members[target].second);
         co_await session.value()->request(req);
         auto reply = co_await prom->acquire();
         co_return reply;
-        
     } 
 private:
     using address = std::pair<std::string, uint16_t>;
     address parse_raft_server_address(std::string addr) {
-        
+        size_t pos = addr.find(':');
+        // 提取IP地址和端口号
+        std::string ip = addr.substr(0, pos);
+        std::string port = addr.substr(pos + 1);
+        return std::make_pair(ip, std::stoi(port));
     };
     std::unique_ptr<session_manager> m_session_manager;
     std::map<uint64_t, address> m_members;

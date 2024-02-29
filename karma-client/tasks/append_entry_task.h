@@ -1,3 +1,4 @@
+#pragma once
 #include "karma-raft/raft.hh"
 #include "protocol/rpc_generated.h"
 #include "task.h"
@@ -42,7 +43,27 @@ public:
   }
   co_context::task<void>
   callback(std::shared_ptr<transport::frame> reply_frame) override {}
-
+  static std::shared_ptr<append_entry_reply> from_frame(std::shared_ptr<transport::frame> frame) {
+        std::string buffer_header = frame->m_header;
+        std::cout << "buffer_header.size: " << buffer_header.size() << std::endl;
+        auto header = flatbuffers::GetRoot<karma_rpc::AppendEntryReply>(buffer_header.data());
+        // raft::append_reply reply{.current_term = header->term(), .commit_idx = header->index(), }
+        raft::append_reply reply {.current_term = static_cast<raft::term_t>(header->term()), .commit_idx = static_cast<raft::index_t>(header->index())};
+        if (header->result_type() == karma_rpc::AppendEntryResult_AppendEntryAccepted) {
+          raft::append_reply::accepted accepted {.last_new_idx = static_cast<raft::index_t>(header->result_as_AppendEntryAccepted()->last_new_idx())};
+          reply.result = accepted;
+        } else if (header->result_type() == karma_rpc::AppendEntryResult_AppendEntryRejected) {
+          raft::append_reply::rejected rejected {.non_matching_idx = static_cast<raft::index_t>(header->result_as_AppendEntryRejected()->non_matching_idx()), .last_idx = static_cast<raft::index_t>(header->result_as_AppendEntryRejected()->last_idx())};
+          reply.result = rejected;
+        }
+        return std::make_shared<append_entry_reply>(header->from_id(), header->group_id(), reply);
+  }
+  uint64_t from_id() {
+    return m_from_id;
+  }
+  raft::append_reply reply() {
+    return m_reply;
+  }
 private:
   uint64_t m_from_id;
   uint64_t m_group_id;
@@ -137,7 +158,12 @@ public:
   };
   co_context::task<void>
   callback(std::shared_ptr<transport::frame> reply_frame) override {}
-
+  uint64_t from_id() {
+    return m_from_id;
+  }
+  raft::append_request request() {
+    return m_request;
+  }
 private:
   uint64_t m_from_id;
   uint64_t m_group_id;

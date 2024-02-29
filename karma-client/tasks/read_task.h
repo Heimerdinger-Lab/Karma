@@ -1,5 +1,7 @@
+#pragma once
 #include "protocol/rpc_generated.h"
 #include "task.h"
+#include <cstddef>
 #include <cstdint>
 #include <variant>
 #include <vector>
@@ -29,6 +31,14 @@ public:
     co_context::task<void> callback(std::shared_ptr<transport::frame> reply_frame) override {
         co_return;
     };
+    static std::shared_ptr<read_reply> from_frame(std::shared_ptr<transport::frame> frame) {
+        std::string buffer_header = frame->m_header;
+        auto header = flatbuffers::GetRoot<karma_rpc::ReadReply>(buffer_header.data());
+        return std::make_shared<read_reply>(header->success(), header->value()->str());
+    };
+    std::string value() {
+        return m_value;
+    }
 private:
     bool m_success;
     std::string m_value;
@@ -36,10 +46,11 @@ private:
 class read_request : public task {
 public:
   read_request(
-      uint64_t m_group_id, std::string m_key,
-      std::shared_ptr<co_context::channel<std::shared_ptr<read_reply>>> m_prom)
-      : m_group_id(m_group_id), m_key(std::move(m_key)),
-        m_prom(std::move(m_prom)) {}
+      uint64_t m_group_id, std::string m_key)
+      : m_group_id(m_group_id), m_key(std::move(m_key)) {}
+  void set_prom(std::shared_ptr<co_context::channel<std::shared_ptr<read_reply>>> prom) {
+    m_prom = prom;
+  }
   std::shared_ptr<transport::frame> gen_frame() override {
     auto ret_frame = std::make_shared<transport::frame>(
         karma_rpc::OperationCode::OperationCode_READ_TASK);
@@ -57,9 +68,17 @@ public:
     return ret_frame;
   }
     co_context::task<void> callback(std::shared_ptr<transport::frame> reply_frame) override {
-        co_return;
+        auto reply = read_reply::from_frame(reply_frame);
+        co_await m_prom->release(reply);
     };
-
+    static std::shared_ptr<read_request> from_frame(std::shared_ptr<transport::frame> frame) {
+        std::string buffer_header = frame->m_header;
+        auto header = flatbuffers::GetRoot<karma_rpc::ReadRequest>(buffer_header.data());
+        return std::make_shared<read_request>(header->group_id(), header->key()->str());
+    };
+    std::string key() {
+        return m_key;
+    }
 private:
     uint64_t m_group_id;
     std::string m_key;

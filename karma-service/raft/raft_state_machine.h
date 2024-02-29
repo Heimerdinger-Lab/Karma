@@ -1,17 +1,25 @@
 #pragma once
-// #include "karma-raft/server.h"
-#include "karma-raft/server.hh"
+#include "karma-raft/raft.hh"
+#include "protocol/rpc_generated.h"
+#include <flatbuffers/buffer.h>
+#include <iostream>
 #include <map>
 #include <ratio>
 namespace service {
 class raft_state_machine : public raft::state_machine {
 public:
     ~raft_state_machine() {}
-    co_context::task<> apply(std::vector<raft::command_cref> command) {
+    co_context::task<> apply(std::vector<raft::command> command) override {
+        std::cout << "applying" << std::endl;
         for (auto& item : command) {
             std::string key, value;
-            decode_command(item, key, value);
-            m_kv[key] = value;
+            std::string sb = item.data();
+            int size = item.size();
+            std::cout << "2cmd_size" << size << std::endl; 
+            std::cout << "2cmd: " << item << std::endl;
+            auto header = flatbuffers::GetRoot<karma_rpc::Command>(item.data());
+            std::cout << "state machine receive: " << header->type() << ", key: " << header->key()->str() << ", value: " << header->value()->str() << std::endl; 
+            m_kv[header->key()->str()] = header->value()->str();
         }
         co_return;
     };

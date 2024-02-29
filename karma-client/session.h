@@ -1,7 +1,9 @@
 #pragma once 
 #include "co_context/io_context.hpp"
 #include "karma-client/header.h"
+#include "karma-client/tasks/read_task.h"
 #include "karma-client/tasks/task.h"
+#include "karma-client/tasks/write_task.h"
 #include "karma-transport/connection.h"
 #include "karma-transport/frame.h"
 #include "karma-client/tasks/echo_task.h"
@@ -32,8 +34,18 @@ private:
                 std::cout << "response!!!!" << std::endl;
                 auto seq = f->m_seq;
                 auto task = m_inflight_requests[seq];
-                auto s = std::dynamic_pointer_cast<echo_request>(task);
-                co_context::co_spawn(s->callback(f));
+                if (f->m_operation_code == karma_rpc::OperationCode_ECHO) {
+                    auto s = std::dynamic_pointer_cast<echo_request>(task);
+                    co_context::co_spawn(s->callback(f));
+                } else if (f->m_operation_code == karma_rpc::OperationCode_READ_TASK) {
+                    auto s = std::dynamic_pointer_cast<read_request>(task);
+                    co_context::co_spawn(s->callback(f));
+                } else if (f->m_operation_code == karma_rpc::OperationCode_WRITE_TASK) {
+                    auto s = std::dynamic_pointer_cast<write_request>(task);
+                    // co_context::co_spawn(s->callback(f));
+                    co_await s->callback(f);
+                }
+
             }
         }
     };

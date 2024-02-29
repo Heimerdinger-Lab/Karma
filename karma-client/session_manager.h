@@ -8,6 +8,7 @@ class session_manager {
 public:
     co_context::task<std::optional<std::shared_ptr<composite_session>>> get_composite_session(std::string host, uint16_t port) {
         // 
+        std::cout << "get_composite_session: " << host << ":" << port << std::endl;  
         co_context::inet_address addr;
         
         if (co_context::inet_address::resolve(host, port, addr)) {

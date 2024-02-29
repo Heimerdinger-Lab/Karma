@@ -13,7 +13,11 @@ public:
         : m_cursor(cursor) {
         uint64_t from = cursor / aligned_buf_alignment * aligned_buf_alignment;
         m_current = std::make_shared<aligned_buf>(from);
+        m_full = std::make_shared<std::vector<std::shared_ptr<aligned_buf>>>();
     };
+    ~aligned_buf_writer() {
+        std::cout << "~abf" << std::endl;
+    }
     // bool buffering() {
     //     return m_buffering;
     // }
@@ -36,7 +40,7 @@ public:
                 data.remove_prefix(r);
                 pos += r;
                 // 写满了
-                m_full.push_back(m_current);
+                m_full->push_back(m_current);
                 std::cout << "new: " << m_current->wal_offset() + m_current->limit() << std::endl;
                 m_current = std::make_shared<aligned_buf>(m_current->wal_offset() + m_current->limit());        
             }
@@ -70,7 +74,7 @@ public:
     }
 public:
     uint64_t m_cursor;
-    std::vector<std::shared_ptr<aligned_buf>> m_full;
+    std::shared_ptr<std::vector<std::shared_ptr<aligned_buf>>> m_full;
     std::shared_ptr<aligned_buf> m_current;
     bool m_dirty = true;
 };

@@ -68,7 +68,7 @@ public:
         writer->write(slice);
         m_written += 4 + 4 + len;
         assert(m_wal_offset + m_written == writer->cursor());
-        return m_written;
+        return m_written + m_wal_offset;
     };
     void append_footer(std::shared_ptr<aligned_buf_writer> writer) {
         if (m_size - m_written < 8) {
@@ -97,6 +97,7 @@ public:
         assert(m_wal_offset + m_written == writer->cursor());
     }
     bool open_and_create() {
+        std::cout << "m_path = " << m_path << std::endl;
         int fd = ::open(m_path.c_str(), O_RDWR | O_CREAT | O_DIRECT, S_IRUSR | S_IWUSR);
         int ret = ::fallocate(fd, 0, 0, 1048576);
         if (ret != 0) {

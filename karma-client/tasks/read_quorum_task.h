@@ -1,3 +1,4 @@
+#pragma once
 #include "karma-raft/raft.hh"
 #include "protocol/rpc_generated.h"
 #include "task.h"
@@ -75,6 +76,12 @@ public:
   };
   co_context::task<void> callback(std::shared_ptr<transport::frame> reply_frame) override {
 
+  }
+  uint64_t from_id() {
+    return m_from_id;
+  }
+  raft::read_quorum request() {
+    return m_request;
   }
 private:
     uint64_t m_from_id;

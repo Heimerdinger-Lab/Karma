@@ -14,6 +14,8 @@ set(KARMA_TRANSPORT "karma-transport")
 set(KARMA_UTIL "karma-util")
 set(KARMA_STORE "karma-store")
 set(KARMA_CLI "karma-cli")
+# 
+set(KARMA_BENCH "benchmark")
 
 # co_context
 set(CO_CONTEXT "co_context")

@@ -1,3 +1,4 @@
+#pragma once
 #include "karma-raft/raft.hh"
 #include "protocol/rpc_generated.h"
 #include "task.h"
@@ -37,6 +38,12 @@ public:
     };
   co_context::task<void>
   callback(std::shared_ptr<transport::frame> reply_frame) override {}
+  uint64_t from_id() {
+    return m_from_id;
+  }
+  raft::vote_request request() {
+    return m_request;
+  }
 private:
     uint64_t m_from_id;
     uint64_t m_group_id;
@@ -72,6 +79,12 @@ public:
     };
   co_context::task<void>
   callback(std::shared_ptr<transport::frame> reply_frame) override {}
+  uint64_t from_id() {
+    return m_from_id;
+  }
+  raft::vote_reply reply() {
+    return m_reply;
+  }
 private:
     uint64_t m_from_id;
     uint64_t m_group_id;

@@ -565,7 +565,7 @@ public:
     // Raft owns the data since it may be still replicating.
     // Raft will not call another apply until the returned future
     // will not become ready.
-    virtual co_context::task<> apply(std::vector<command_cref> command) = 0;
+    virtual co_context::task<> apply(std::vector<command> command) = 0;
 
     // The function suppose to take a snapshot of a state machine
     // To be called during log compaction or when a leader brings
