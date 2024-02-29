@@ -1,12 +1,14 @@
 #pragma once
 // #include "karma-raft/raft.h"
+#include <memory>
+
 #include "karma-client/client.h"
 #include "karma-raft/raft.hh"
 namespace service {
 class raft_rpc : public raft::rpc {
    public:
-    raft_rpc(raft::server_id id, std::shared_ptr<client::client> client)
-        : m_id(id), m_client(client) {}
+    raft_rpc(raft::server_id id, std::unique_ptr<client::client> client)
+        : m_id(id), m_client(std::move(client)) {}
     ~raft_rpc() {}
     co_context::task<raft::snapshot_reply> send_snapshot(
         raft::server_id server_id, const raft::install_snapshot& snap) override {
@@ -54,7 +56,7 @@ class raft_rpc : public raft::rpc {
     co_context::task<> abort() override {}
 
    private:
-    std::shared_ptr<client::client> m_client;
+    std::unique_ptr<client::client> m_client;
     raft::server_id m_id;
 };
 }  // namespace service

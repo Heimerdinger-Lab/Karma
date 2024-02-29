@@ -18,21 +18,18 @@
 namespace service {
 class session {
    public:
-    session(std::shared_ptr<co_context::socket> socket, std::string addr, uint8_t port,
-            std::shared_ptr<sb_server> raft_server)
-        : m_socket(socket), m_inet_address(addr, port), m_raft(raft_server) {}
+    session(int sockfd, std::string addr, uint8_t port, sb_server& raft_server)
+        : m_inet_address(addr, port), m_raft(raft_server) {
+        m_conn =
+            std::make_unique<transport::connection>(std::make_unique<co_context::socket>(sockfd),
+                                                    m_inet_address.to_ip(), m_inet_address.port());
+    }
     void process() { co_context::co_spawn(process0()); }
-    co_context::task<> conn_write(std::shared_ptr<transport::connection> conn,
-                                  std::shared_ptr<transport::frame> f) {
-        co_await conn->write_frame(f);
-    };
     co_context::task<> process0() {
-        auto conn = std::make_shared<transport::connection>(m_socket, m_inet_address.to_ip(),
-                                                            m_inet_address.port());
         auto channel =
             std::make_shared<co_context::channel<std::shared_ptr<transport::frame>, 1024>>();
-        co_context::co_spawn(read_loop(channel, conn));
-        co_context::co_spawn(write_loop(channel, conn));
+        co_context::co_spawn(read_loop(channel, *m_conn));
+        co_context::co_spawn(write_loop(channel, *m_conn));
         co_return;
     }
     bool valid() {
@@ -48,12 +45,12 @@ class session {
     }
     co_context::task<void> read_loop(
         std::shared_ptr<co_context::channel<std::shared_ptr<transport::frame>, 1024>> channel,
-        std::shared_ptr<transport::connection> conn) {
+        transport::connection& conn) {
         while (true) {
             std::cout << "????" << std::endl;
             std::shared_ptr<transport::frame> f;
             try {
-                f = co_await conn->read_frame();
+                f = co_await conn.read_frame();
             } catch (transport::frame_error e) {
                 std::cout << "frame error" << std::endl;
             }
@@ -79,31 +76,31 @@ class session {
                 } else if (f->m_operation_code == karma_rpc::OperationCode_VOTE) {
                     std::cout << "vote request" << std::endl;
                     auto vote_request = client::vote_request::from_frame(f);
-                    m_raft->receive(vote_request->from_id(), vote_request->request());
+                    m_raft.receive(vote_request->from_id(), vote_request->request());
                 } else if (f->m_operation_code == karma_rpc::OperationCode_HEARTBEAT) {
                     std::cout << "heartbeat" << std::endl;
                     // auto vote_request = client::vote_request::from_frame(f);
-                    // co_await m_raft->receive(vote_request->from_id(),
+                    // co_await m_raft.receive(vote_request->from_id(),
                     // vote_request->request());
                 } else if (f->m_operation_code == karma_rpc::OperationCode_APPEND_ENTRY) {
                     std::cout << "append entry" << std::endl;
                     auto append_request = client::append_entry_request::from_frame(f);
-                    m_raft->receive(append_request->from_id(), append_request->request());
+                    m_raft.receive(append_request->from_id(), append_request->request());
                 } else if (f->m_operation_code == karma_rpc::OperationCode_READ_QUORUM) {
                     std::cout << "read quorum" << std::endl;
                     auto read_quorum_request = client::read_quorum_request::from_frame(f);
-                    m_raft->receive(read_quorum_request->from_id(), read_quorum_request->request());
+                    m_raft.receive(read_quorum_request->from_id(), read_quorum_request->request());
                 } else if (f->m_operation_code == karma_rpc::OperationCode_READ_TASK) {
                     auto read_task = client::read_request::from_frame(f);
                     std::cout << "read request!!!, key: " << read_task->key() << std::endl;
-                    auto val = co_await m_raft->cli_read(read_task->key());
+                    auto val = co_await m_raft.cli_read(read_task->key());
                     client::read_reply reply(true, val);
                     auto frame = reply.gen_frame();
                     frame->m_seq = f->m_seq;
                     co_await channel->release(frame);
                 } else if (f->m_operation_code == karma_rpc::OperationCode_WRITE_TASK) {
                     auto write_task = client::write_request::from_frame(f);
-                    co_await m_raft->cli_write(write_task->key(), write_task->value());
+                    co_await m_raft.cli_write(write_task->key(), write_task->value());
                     client::write_reply reply(true);
                     auto frame = reply.gen_frame();
                     frame->m_seq = f->m_seq;
@@ -117,20 +114,20 @@ class session {
                 } else if (f->m_operation_code == karma_rpc::OperationCode_VOTE) {
                     std::cout << "vote reply" << std::endl;
                     auto vote_reply = client::vote_reply::from_frame(f);
-                    m_raft->receive(vote_reply->from_id(), vote_reply->reply());
+                    m_raft.receive(vote_reply->from_id(), vote_reply->reply());
                 } else if (f->m_operation_code == karma_rpc::OperationCode_HEARTBEAT) {
                     std::cout << "heartbeat reply" << std::endl;
                     // auto vote_request = client::vote_request::from_frame(f);
-                    // co_await m_raft->receive(vote_request->from_id(),
+                    // co_await m_raft.receive(vote_request->from_id(),
                     // vote_request->request());
                 } else if (f->m_operation_code == karma_rpc::OperationCode_APPEND_ENTRY) {
                     std::cout << "append entry reply" << std::endl;
                     auto append_reply = client::append_entry_reply::from_frame(f);
-                    m_raft->receive(append_reply->from_id(), append_reply->reply());
+                    m_raft.receive(append_reply->from_id(), append_reply->reply());
                 } else if (f->m_operation_code == karma_rpc::OperationCode_READ_QUORUM) {
                     std::cout << "read quorum reply" << std::endl;
                     auto read_quorum_request = client::read_quorum_request::from_frame(f);
-                    m_raft->receive(read_quorum_request->from_id(), read_quorum_request->request());
+                    m_raft.receive(read_quorum_request->from_id(), read_quorum_request->request());
                 } else {
                     std::cout << "unknow reply task" << std::endl;
                 }
@@ -139,20 +136,21 @@ class session {
     }
     co_context::task<void> write_loop(
         std::shared_ptr<co_context::channel<std::shared_ptr<transport::frame>, 1024>> channel,
-        std::shared_ptr<transport::connection> conn) {
+        transport::connection& conn) {
         // response loop
         while (true) {
             auto f = co_await channel->acquire();
             std::cout << "to write a frame" << std::endl;
             // co_context::co_spawn(conn_write(conn, f));
             // co_await conn_write(conn, f);
-            co_await conn->write_frame(f);
+            co_await conn.write_frame(f);
         }
     }
 
    private:
+    std::unique_ptr<transport::connection> m_conn;
     co_context::inet_address m_inet_address;
-    std::shared_ptr<co_context::socket> m_socket;
-    std::shared_ptr<sb_server> m_raft;
+    // std::unique_ptr<co_context::socket> m_socket;
+    sb_server& m_raft;
 };
 };  // namespace service

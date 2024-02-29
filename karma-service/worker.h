@@ -4,6 +4,7 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 
+#include <boost/log/trivial.hpp>
 #include <chrono>
 #include <cstdint>
 #include <memory>
@@ -27,9 +28,9 @@ class worker {
    public:
     worker(config cfg) : m_cfg(cfg){};
     co_context::task<> start() {
-        // co_context::acceptor ac{co_context::inet_address{port}};
-        m_client = std::make_shared<client::client>(m_cfg.m_members);
-        auto rpc_ = std::make_unique<service::raft_rpc>(m_cfg.m_id, m_client);
+        BOOST_LOG_TRIVIAL(debug) << "worker starting";
+        auto rpc_ = std::make_unique<service::raft_rpc>(
+            m_cfg.m_id, std::make_unique<client::client>(m_cfg.m_members));
         auto sm_ = std::make_unique<service::raft_state_machine>();
         auto fd_ = std::make_unique<service::raft_failure_detector>();
         std::vector<raft::config_member> members;
@@ -38,44 +39,47 @@ class worker {
             raft::config_member member(address, true);
             members.push_back(member);
         }
-        m_raft_service =
+        m_raft =
             sb_server::create(m_cfg.m_id, std::move(sm_), std::move(rpc_), std::move(fd_), members);
-        // m_ac = co_context::acceptor
-        // {co_context::inet_address{m_cfg.m_listen_port}};
-        co_context::inet_address addr(m_cfg.m_listen_ip, m_cfg.m_listen_port);
-        m_ac = std::make_shared<co_context::acceptor>(addr);
-        co_await m_raft_service->start();
-        // m_raft_service->tick();
-        co_context::co_spawn([](std::shared_ptr<sb_server> service) -> co_context::task<> {
+
+        auto current_address = m_cfg.m_members[m_cfg.m_id];
+        size_t pos = current_address.find(':');
+        // 提取IP地址和端口号
+        std::string ip = current_address.substr(0, pos);
+        std::string port = current_address.substr(pos + 1);
+        BOOST_LOG_TRIVIAL(debug) << "listenning at " << ip << ":" << port;
+        co_context::inet_address addr(ip, std::stoi(port));
+        m_ac = std::make_unique<co_context::acceptor>(addr);
+        co_await m_raft->start();
+        co_context::co_spawn([](sb_server& service) -> co_context::task<> {
             while (true) {
-                std::cout << "tick, is_leader: " << service->is_leader() << std::endl;
-                service->tick();
+                // std::cout << "tick, is_leader: " << service.is_leader() << std::endl;
+                BOOST_LOG_TRIVIAL(debug) << "tick";
+                service.tick();
                 using namespace std::literals;
                 co_await co_context::timeout(1s);
             }
-        }(m_raft_service));
+        }(*m_raft));
     }
     co_context::task<> loop() {
         while (true) {
             struct sockaddr_in addr;
             socklen_t addr_len = sizeof(addr);
             auto sockfd = co_await m_ac->accept((sockaddr*)&addr, &addr_len);
-            std::cout << "receive connection: " << inet_ntoa(addr.sin_addr) << ", " << addr.sin_port
-                      << std::endl;
-            auto sock = std::make_shared<co_context::socket>(sockfd);
-            auto session = std::make_shared<service::session>(sock, "127.0.0.1", addr.sin_port,
-                                                              m_raft_service);
-            m_sessions.push_back(session);
+            BOOST_LOG_TRIVIAL(debug)
+                << "receive connection from " << inet_ntoa(addr.sin_addr) << ":" << addr.sin_port;
+            auto session =
+                std::make_unique<service::session>(sockfd, "127.0.0.1", addr.sin_port, *m_raft);
             session->process();
+            m_sessions.emplace_back(std::move(session));
         }
     }
 
    private:
-    // uint16_t m_port;
     config m_cfg;
-    std::shared_ptr<sb_server> m_raft_service;
-    std::shared_ptr<client::client> m_client;
-    std::shared_ptr<co_context::acceptor> m_ac;
-    std::vector<std::shared_ptr<session>> m_sessions;
+    std::vector<std::unique_ptr<session>> m_sessions;
+
+    std::unique_ptr<sb_server> m_raft;
+    std::unique_ptr<co_context::acceptor> m_ac;
 };
 }  // namespace service

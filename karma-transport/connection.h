@@ -12,8 +12,8 @@
 namespace transport {
 class connection {
    public:
-    connection(std::shared_ptr<co_context::socket> socket, std::string addr, uint8_t port)
-        : m_socket(socket), m_inet_address(addr, port) {
+    connection(std::unique_ptr<co_context::socket> socket, std::string addr, uint8_t port)
+        : m_socket(std::move(socket)), m_inet_address(addr, port) {
         co_context::co_spawn(loop());
     }
     ~connection() = default;
@@ -57,14 +57,14 @@ class connection {
             //     m_buffer.reserve(4096);
             // }
             char buf[128] = {0};
-            std::cout << "to wait: " << m_socket.use_count() << std::endl;
+            // std::cout << "to wait: " << m_socket.use_count() << std::endl;
             auto read_size = co_await m_socket->recv(buf);
+            if (read_size < 0) {
+                std::cout << "size < 0" << std::endl;
+                throw frame_error::connection_reset();
+            }
             std::cout << "end wait, read_size: " << read_size << std::endl;
             m_buffer.insert(m_buffer.end(), buf, buf + read_size);
-            if (read_size == 0) {
-                std::cout << "size = 0" << std::endl;
-                // throw frame_error::connection_reset();
-            }
         };
     };
     co_context::task<std::optional<connection_error>> write_frame(std::shared_ptr<frame> f) {
@@ -89,7 +89,7 @@ class connection {
         };
     }
     co_context::inet_address m_inet_address;
-    std::shared_ptr<co_context::socket> m_socket;
+    std::unique_ptr<co_context::socket> m_socket;
     co_context::channel<write_task> m_write_task_chan;
     std::string m_buffer;
 };

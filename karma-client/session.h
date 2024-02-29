@@ -4,7 +4,6 @@
 #include <unordered_map>
 
 #include "co_context/io_context.hpp"
-#include "karma-client/header.h"
 #include "karma-client/tasks/echo_task.h"
 #include "karma-client/tasks/read_task.h"
 #include "karma-client/tasks/task.h"
@@ -15,7 +14,8 @@
 namespace client {
 class session {
    public:
-    session(std::shared_ptr<transport::connection> connection) : m_connection(connection) {
+    session(std::unique_ptr<transport::connection> connection)
+        : m_connection(std::move(connection)) {
         co_context::co_spawn(loop());
     }
     co_context::task<void> write(std::shared_ptr<task> task) {
@@ -49,7 +49,7 @@ class session {
             }
         }
     };
-    std::shared_ptr<transport::connection> m_connection;
+    std::unique_ptr<transport::connection> m_connection;
     std::unordered_map<uint32_t, std::shared_ptr<task>> m_inflight_requests;
 };
 }  // namespace client

@@ -12,15 +12,16 @@
 #include "co_context/io_context.hpp"
 #include "co_context/shared_task.hpp"
 #include "co_context/task.hpp"
-#include "fsm.hh"
+#include "karma-raft/fsm.hh"
+#include "karma-raft/raft.hh"
 #include "protocol/rpc_generated.h"
-#include "raft.hh"
-class sb_server {
+namespace service {
+class raft_server {
    public:
     // 外部
-    sb_server(raft::server_id id, std::unique_ptr<raft::state_machine> sm,
-              std::unique_ptr<raft::rpc> rpc_, std::unique_ptr<raft::failure_detector> fd_,
-              std::vector<raft::config_member> members)
+    raft_server(raft::server_id id, std::unique_ptr<raft::state_machine> sm,
+                std::unique_ptr<raft::rpc> rpc_, std::unique_ptr<raft::failure_detector> fd_,
+                std::vector<raft::config_member> members)
         : _id(id),
           _state_machine(std::move(sm)),
           _rpc(std::move(rpc_)),
@@ -49,13 +50,13 @@ class sb_server {
     }
     void tick() { _fsm->tick(); }
     bool is_leader() { return _fsm->is_leader(); }
-    static std::unique_ptr<sb_server> create(raft::server_id id,
-                                             std::unique_ptr<raft::state_machine> sm,
-                                             std::unique_ptr<raft::rpc> rpc_,
-                                             std::unique_ptr<raft::failure_detector> fd_,
-                                             std::vector<raft::config_member> members) {
-        return std::make_unique<sb_server>(id, std::move(sm), std::move(rpc_), std::move(fd_),
-                                           members);
+    static std::unique_ptr<raft_server> create(raft::server_id id,
+                                               std::unique_ptr<raft::state_machine> sm,
+                                               std::unique_ptr<raft::rpc> rpc_,
+                                               std::unique_ptr<raft::failure_detector> fd_,
+                                               std::vector<raft::config_member> members) {
+        return std::make_unique<raft_server>(id, std::move(sm), std::move(rpc_), std::move(fd_),
+                                             members);
     }
 
     void receive(raft::server_id from, raft::rpc_message msg) {
@@ -240,3 +241,4 @@ class sb_server {
     //
     std::vector<raft::config_member> _members;
 };
+}  // namespace service

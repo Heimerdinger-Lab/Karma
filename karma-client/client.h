@@ -39,7 +39,7 @@ class client {
         auto session = co_await m_session_manager->get_composite_session(m_members[target].first,
                                                                          m_members[target].second);
 
-        co_await session.value()->request(req);
+        co_await session.value().get().request(req);
         auto reply = co_await prom->acquire();
         co_return reply;
     }
@@ -50,7 +50,7 @@ class client {
         auto session = co_await m_session_manager->get_composite_session(m_members[target].first,
                                                                          m_members[target].second);
         if (session.has_value()) {
-            co_await session.value()->request(req);
+            co_await session.value().get().request(req);
         }
     }
     co_context::task<> append_entry_reply_(raft::server_id start, raft::server_id target,
@@ -60,7 +60,7 @@ class client {
         auto session = co_await m_session_manager->get_composite_session(m_members[target].first,
                                                                          m_members[target].second);
         if (session.has_value()) {
-            co_await session.value()->request(req);
+            co_await session.value().get().request(req);
         }
     }
     co_context::task<> vote_request_(raft::server_id start, raft::server_id target,
@@ -69,7 +69,7 @@ class client {
         auto session = co_await m_session_manager->get_composite_session(m_members[target].first,
                                                                          m_members[target].second);
         if (session.has_value()) {
-            co_await session.value()->request(req);
+            co_await session.value().get().request(req);
         }
     }
     co_context::task<> vote_reply_(raft::server_id start, raft::server_id target,
@@ -78,7 +78,7 @@ class client {
         auto session = co_await m_session_manager->get_composite_session(m_members[target].first,
                                                                          m_members[target].second);
         if (session.has_value()) {
-            co_await session.value()->request(req);
+            co_await session.value().get().request(req);
         }
     }
     co_context::task<> time_out(raft::server_id start, raft::server_id target,
@@ -88,7 +88,7 @@ class client {
         auto session = co_await m_session_manager->get_composite_session(m_members[target].first,
                                                                          m_members[target].second);
         if (session.has_value()) {
-            co_await session.value()->request(req);
+            co_await session.value().get().request(req);
         }
     }
     co_context::task<> read_quorum(raft::server_id start, raft::server_id target,
@@ -98,7 +98,7 @@ class client {
         auto session = co_await m_session_manager->get_composite_session(m_members[target].first,
                                                                          m_members[target].second);
         if (session.has_value()) {
-            co_await session.value()->request(req);
+            co_await session.value().get().request(req);
         }
     }
     co_context::task<> read_quorum_reply_(raft::server_id start, raft::server_id target,
@@ -108,7 +108,7 @@ class client {
         auto session = co_await m_session_manager->get_composite_session(m_members[target].first,
                                                                          m_members[target].second);
         if (session.has_value()) {
-            co_await session.value()->request(req);
+            co_await session.value().get().request(req);
         }
     }
 
@@ -122,7 +122,7 @@ class client {
         req->set_prom(prom);
         auto session = co_await m_session_manager->get_composite_session(m_members[target].first,
                                                                          m_members[target].second);
-        co_await session.value()->request(req);
+        co_await session.value().get().request(req);
         auto reply = co_await prom->acquire();
         co_return reply;
     }
@@ -135,7 +135,7 @@ class client {
         req->set_prom(prom);
         auto session = co_await m_session_manager->get_composite_session(m_members[target].first,
                                                                          m_members[target].second);
-        co_await session.value()->request(req);
+        co_await session.value().get().request(req);
         auto reply = co_await prom->acquire();
         co_return reply;
     }
