@@ -1,0 +1,10 @@
+[raft]
+count = 3
+# server_id start from 1.
+server_id = 3
+members = ["127.0.0.1:8888", "127.0.0.1:8889", "127.0.0.1:8890"]
+[store]
+path = "/home/tpa/Heimerdinger-Lab/Karma/store-3/"
+
+
+

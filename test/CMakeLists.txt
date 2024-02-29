@@ -1,0 +1,30 @@
+if(KARMA_SERVICE_TESTS)
+    enable_testing()
+    add_subdirectory(${TEST_KARMA_SERVICE})
+endif()
+if(KARMA_RAFT_TESTS)
+    enable_testing()
+    add_subdirectory(${TEST_KARMA_RAFT})
+endif()
+if(KARMA_TRANSPORT_TESTS)
+    enable_testing()
+    add_subdirectory(${TEST_KARMA_TRANSPORT})
+endif()
+if(KARMA_3RD_TESTS)
+    enable_testing()
+    add_subdirectory(${TEST_KARMA_3RD_PART})
+endif()
+
+if (KARMA_CLIENT_TESTS) 
+    enable_testing()
+    add_subdirectory(${TEST_KARMA_CLIENT})
+endif()
+
+
+
+if (KARMA_STORE_TESTS) 
+    enable_testing()
+    add_subdirectory(${TEST_KARMA_STORE})
+endif()
+
+# add_subdirectory(test-sivir)

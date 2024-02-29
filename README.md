@@ -1,10 +1,10 @@
+# Karma(🚧 work in progress)
 
-## Dependence
-boost:
-```
-sudo apt-get install libboost-all-dev
-```
-boost.asio:
-```
-sudo apt-get install -y libasio-dev
-```
+
+## Inspired by
+- scylladb(raft, cache)
+- redpanda(cache)
+- seastar(Thread per core, async programming)
+- rocksdb(write ahead log)
+- co_context(io_uring, coroutine)
+- elastic_stream(io_uring, TpC, WAL, session)

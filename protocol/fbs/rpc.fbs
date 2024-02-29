@@ -1,0 +1,142 @@
+namespace karma_rpc;
+
+enum OperationCode : short {
+    UNKNOW = 0x0000,
+    ECHO = 0x0001,
+    HEARTBEAT = 0x0002,
+    APPEND_ENTRY = 0x0003,
+    VOTE = 0x0004,
+    TIME_OUT = 0x0005,
+    READ_QUORUM = 0x0006,
+    READ_TASK = 0x0007,
+    WRITE_TASK = 0x0008,
+}
+
+
+table AppendEntryRequest {
+    from_id: int64 = -1 (id: 0);
+    group_id: int64 = -1 (id: 1);
+    // 
+    current_term: int64 = -1 (id: 2);
+    prev_log_idx: int64 = -1 (id: 3);
+    prev_log_term: int64 = -1 (id: 4);
+    leader_commit_idx: int64 = -1 (id: 5);
+    // 
+}
+table AppendEntryPayload {
+    entries: [LogEntry] (id: 0);
+}
+table LogEntry {
+    term: int64 = -1 (id: 0);
+    index: int64 = -1 (id: 1);
+    command: string(id: 2);
+}
+table AppendEntryRejected {
+    non_matching_idx: int64 = -1 (id: 0);
+    last_idx: int64 = -1 (id: 1);
+}
+table AppendEntryAccepted {
+    last_new_idx: int64 = -1 (id: 0);
+}
+union AppendEntryResult {
+    AppendEntryAccepted,
+    AppendEntryRejected
+}
+table AppendEntryReply {
+    from_id: int64 = -1;
+    group_id: int64 = -1;
+    // 
+    term: int64 = -1;
+    index: int64 = -1;
+    result: AppendEntryResult;
+}
+
+table VoteRequest {
+    from_id: int64 = -1;
+    group_id: int64 = -1;
+    // 
+    current_term: int64 = -1;
+    last_log_idx: int64 = -1;
+    last_log_term: int64 = -1;
+}
+
+table VoteReply {
+    // (from_id, group_id)
+    from_id: int64 = -1;
+    group_id: int64 = -1;
+    // 
+    current_term: int64 = -1;
+    vote_granted: int64 = -1;
+}
+
+table TimeOut {
+    from_id: int64 = -1;
+    group_id: int64 = -1;
+    // 
+    current_term: int64 = -1;
+}
+
+table ReadQuorum {
+    from_id: int64 = -1;
+    group_id: int64 = -1;
+    // 
+    current_term: int64 = -1;
+    leader_commit_idx: int64 = -1;
+    id: int64 = -1;
+}
+table ReadQuorumReply {
+    from_id: int64 = -1;
+    group_id: int64 = -1;
+    // 
+    current_term: int64 = -1;
+    commit_idx: int64 = -1;
+    id: int64 = -1;
+}
+
+table EchoRequest {
+    from_id: int64 = -1;
+    group_id: int64 = -1;
+    //
+    msg: string;
+}
+
+table EchoReply {
+    from_id: int64 = -1;
+    group_id: int64 = -1;
+    //
+    msg: string;
+}
+
+// 
+enum CommandType : short {
+    UNKNOW = 0x0000,
+    VALUE = 0x0001,
+    DELETE = 0x0002,
+}
+
+table Command {
+    type: CommandType = UNKNOW;
+    key: string;
+    value: string;
+}
+table Batch {
+    commands: [Command];
+}
+
+// 
+table ReadRequest {
+    group_id: int64 = -1;
+    key: string;
+}
+table ReadReply {
+    success: bool;
+    value: string;
+}
+table WriteRequest {
+    group_id: int64 = -1;
+    key: string;
+    value: string;
+}
+table WriteReply {
+    success: bool;
+}
