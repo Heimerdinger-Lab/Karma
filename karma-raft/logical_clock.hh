@@ -7,8 +7,9 @@
  */
 #pragma once
 
-#include <chrono>
 #include <fmt/chrono.h>
+
+#include <chrono>
 
 namespace raft {
 
@@ -21,7 +22,7 @@ namespace raft {
 // this enables tests when different state machines run at
 // different clock speeds.
 class logical_clock final {
-public:
+   public:
     using rep = int64_t;
     // There is no realistic period for a logical clock,
     // just use the smallest period possible.
@@ -31,21 +32,16 @@ public:
 
     static constexpr bool is_steady = true;
 
-    void advance(duration diff = duration{1}) {
-        _now += diff;
-    }
-    time_point now() const noexcept {
-        return _now;
-    }
+    void advance(duration diff = duration{1}) { _now += diff; }
+    time_point now() const noexcept { return _now; }
 
-    static constexpr time_point min() {
-        return time_point(duration{0});
-    }
-private:
+    static constexpr time_point min() { return time_point(duration{0}); }
+
+   private:
     time_point _now = min();
 };
 
-} // end of namespace raft
+}  // end of namespace raft
 
 template <>
 struct fmt::formatter<raft::logical_clock::time_point> {

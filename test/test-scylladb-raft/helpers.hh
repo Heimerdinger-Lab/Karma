@@ -29,28 +29,27 @@ void election_threshold(raft::fsm& fsm);
 void election_timeout(raft::fsm& fsm);
 void make_candidate(raft::fsm& fsm);
 
-struct trivial_failure_detector: public raft::failure_detector {
-    bool is_alive(raft::server_id from) override {
-        return true;
-    }
+struct trivial_failure_detector : public raft::failure_detector {
+    bool is_alive(raft::server_id from) override { return true; }
 };
 extern struct trivial_failure_detector trivial_failure_detector;
 
-class discrete_failure_detector: public raft::failure_detector {
+class discrete_failure_detector : public raft::failure_detector {
     bool _is_alive = true;
     std::unordered_set<raft::server_id> _dead;
-public:
-    bool is_alive(raft::server_id id) override {
-        return _is_alive && !_dead.contains(id);
-    }
+
+   public:
+    bool is_alive(raft::server_id id) override { return _is_alive && !_dead.contains(id); }
     void mark_dead(raft::server_id id) { _dead.emplace(id); }
     void mark_alive(raft::server_id id) { _dead.erase(id); }
     void mark_all_dead() { _is_alive = false; }
     void mark_all_alive() { _is_alive = true; }
 };
 
-template <typename T> void add_entry(raft::log& log, T cmd) {
-    log.emplace_back(std::make_shared<raft::log_entry>(raft::log_entry{log.last_term(), log.next_idx(), cmd}));
+template <typename T>
+void add_entry(raft::log& log, T cmd) {
+    log.emplace_back(
+        std::make_shared<raft::log_entry>(raft::log_entry{log.last_term(), log.next_idx(), cmd}));
 }
 
 raft::snapshot_descriptor log_snapshot(raft::log& log, raft::index_t idx);
@@ -72,18 +71,14 @@ extern raft::fsm_config fsm_cfg;
 extern raft::fsm_config fsm_cfg_pre;
 
 class fsm_debug : public raft::fsm {
-public:
+   public:
     using raft::fsm::fsm;
-    void become_follower(raft::server_id leader) {
-        raft::fsm::become_follower(leader);
-    }
+    void become_follower(raft::server_id leader) { raft::fsm::become_follower(leader); }
     const raft::follower_progress& get_progress(raft::server_id id) {
         raft::follower_progress* progress = leader_state().tracker.find(id);
         return *progress;
     }
-    raft::log& get_log() {
-        return raft::fsm::get_log();
-    }
+    raft::log& get_log() { return raft::fsm::get_log(); }
 
     bool leadership_transfer_active() const {
         assert(is_leader());
@@ -97,19 +92,16 @@ bool compare_log_entries(raft::log& log1, raft::log& log2, size_t from, size_t t
 using raft_routing_map = std::unordered_map<raft::server_id, raft::fsm*>;
 
 bool deliver(raft_routing_map& routes, raft::server_id from,
-        std::pair<raft::server_id, raft::rpc_message> m);
+             std::pair<raft::server_id, raft::rpc_message> m);
 void deliver(raft_routing_map& routes, raft::server_id from,
-        std::vector<std::pair<raft::server_id, raft::rpc_message>> msgs);
+             std::vector<std::pair<raft::server_id, raft::rpc_message>> msgs);
 
-void
-communicate_impl(std::function<bool()> stop_pred, raft_routing_map& map);
+void communicate_impl(std::function<bool()> stop_pred, raft_routing_map& map);
 
 template <typename... Args>
 void communicate_until(std::function<bool()> stop_pred, Args&&... args) {
     raft_routing_map map;
-    auto add_map_entry = [&map](raft::fsm& fsm) -> void {
-        map.emplace(fsm.id(), &fsm);
-    };
+    auto add_map_entry = [&map](raft::fsm& fsm) -> void { map.emplace(fsm.id(), &fsm); };
     (add_map_entry(args), ...);
     communicate_impl(stop_pred, map);
 }
@@ -134,13 +126,11 @@ raft::fsm* select_leader(Args&&... args) {
     return leader;
 }
 
-
 raft::server_id id();
 raft::server_address_set address_set(std::vector<raft::server_id> ids);
 raft::config_member_set config_set(std::vector<raft::server_id> ids);
 fsm_debug create_follower(raft::server_id id, raft::log log,
-        raft::failure_detector& fd = trivial_failure_detector);
-
+                          raft::failure_detector& fd = trivial_failure_detector);
 
 // Raft uses UUID 0 as special case.
 // Convert local 0-based integer id to raft +1 UUID
@@ -153,17 +143,19 @@ raft::config_member to_config_member(size_t int_id);
 
 // size_t to_int_id(utils::UUID uuid);
 // Return true upon a random event with given probability
-bool rolladice(float probability = 1.0/2.0);
+bool rolladice(float probability = 1.0 / 2.0);
 
-// Invokes an abortable function `f` on shard `shard` using abort source `as` from the current shard.
-// It's not safe to use `as` directly on a different shard. This function routes the abort requests
-// from `as` to the other shard.
-// future<> invoke_abortable_on(unsigned shard, noncopyable_function<future<>(abort_source&)> f, abort_source& as);
+// Invokes an abortable function `f` on shard `shard` using abort source `as`
+// from the current shard. It's not safe to use `as` directly on a different
+// shard. This function routes the abort requests from `as` to the other shard.
+// future<> invoke_abortable_on(unsigned shard,
+// noncopyable_function<future<>(abort_source&)> f, abort_source& as);
 
 // Server address with given ID and empty `info`.
 raft::server_address server_addr_from_id(raft::server_id);
 // Config member with given ID, empty `info`, a voter.
 raft::config_member config_member_from_id(raft::server_id);
 
-// Make a non-joint configuration from a given set of IDs by setting empty `server_info`s and `can_vote = true`.
+// Make a non-joint configuration from a given set of IDs by setting empty
+// `server_info`s and `can_vote = true`.
 raft::configuration config_from_ids(std::vector<raft::server_id>);

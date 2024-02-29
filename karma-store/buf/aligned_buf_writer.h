@@ -1,29 +1,26 @@
 #pragma once
-#include "karma-store/buf/aligned_buf.h"
-#include "karma-util/coding.h"
+#include <unistd.h>
+
 #include <cstdint>
 #include <deque>
 #include <iostream>
 #include <memory>
-#include <unistd.h>
 #include <vector>
+
+#include "karma-store/buf/aligned_buf.h"
+#include "karma-util/coding.h"
 class aligned_buf_writer {
-public:
-    aligned_buf_writer(uint64_t cursor)
-        : m_cursor(cursor) {
+   public:
+    aligned_buf_writer(uint64_t cursor) : m_cursor(cursor) {
         uint64_t from = cursor / aligned_buf_alignment * aligned_buf_alignment;
         m_current = std::make_shared<aligned_buf>(from);
         m_full = std::make_shared<std::vector<std::shared_ptr<aligned_buf>>>();
     };
-    ~aligned_buf_writer() {
-        std::cout << "~abf" << std::endl;
-    }
+    ~aligned_buf_writer() { std::cout << "~abf" << std::endl; }
     // bool buffering() {
     //     return m_buffering;
     // }
-    uint64_t cursor() {
-        return m_cursor;
-    }
+    uint64_t cursor() { return m_cursor; }
     bool write(sslice data) {
         uint64_t len = data.size();
         uint64_t pos = 0;
@@ -42,7 +39,8 @@ public:
                 // 写满了
                 m_full->push_back(m_current);
                 std::cout << "new: " << m_current->wal_offset() + m_current->limit() << std::endl;
-                m_current = std::make_shared<aligned_buf>(m_current->wal_offset() + m_current->limit());        
+                m_current =
+                    std::make_shared<aligned_buf>(m_current->wal_offset() + m_current->limit());
             }
         };
         std::cout << "len = " << len << std::endl;
@@ -69,10 +67,9 @@ public:
         return m_dirty;
         // return true;
     }
-    void set_dirty(bool value) {
-        m_dirty = value;
-    }
-public:
+    void set_dirty(bool value) { m_dirty = value; }
+
+   public:
     uint64_t m_cursor;
     std::shared_ptr<std::vector<std::shared_ptr<aligned_buf>>> m_full;
     std::shared_ptr<aligned_buf> m_current;

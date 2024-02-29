@@ -59,7 +59,8 @@ class log {
     // the log backwards after truncate().
     index_t _prev_conf_idx = index_t{0};
     size_t _memory_usage;
-private:
+
+   private:
     // Drop uncommitted log entries not present on the leader.
     void truncate_uncommitted(index_t i);
     // A helper used to find the last configuration entry in the
@@ -68,9 +69,11 @@ private:
     log_entry_ptr& get_entry(index_t);
     const log_entry_ptr& get_entry(index_t) const;
     size_t range_memory_usage(log_entries::iterator first, log_entries::iterator last) const;
-public:
-    explicit log(snapshot_descriptor snp, log_entries log = {}, size_t max_command_size = sizeof(log_entry))
-            : _snapshot(std::move(snp)), _log(std::move(log)), _max_command_size(max_command_size) {
+
+   public:
+    explicit log(snapshot_descriptor snp, log_entries log = {},
+                 size_t max_command_size = sizeof(log_entry))
+        : _snapshot(std::move(snp)), _log(std::move(log)), _max_command_size(max_command_size) {
         if (_log.empty()) {
             _first_idx = _snapshot.idx + index_t{1};
         } else {
@@ -88,8 +91,8 @@ public:
         init_last_conf_idx();
     }
     // The index here the global raft log index, not related to a snapshot.
-    // It is a programming error to call the function with an index that points into the snapshot,
-    // the function will abort()
+    // It is a programming error to call the function with an index that points
+    // into the snapshot, the function will abort()
     log_entry_ptr& operator[](size_t i);
     // Add an entry to the log.
     void emplace_back(log_entry_ptr&& e);
@@ -105,36 +108,28 @@ public:
     // Return index of the last entry. If the log is empty,
     // return the index of the last entry in the snapshot.
     index_t last_idx() const;
-    index_t last_conf_idx() const {
-        return _last_conf_idx ? _last_conf_idx : _snapshot.idx;
-    }
-    index_t stable_idx() const {
-        return _stable_idx;
-    }
+    index_t last_conf_idx() const { return _last_conf_idx ? _last_conf_idx : _snapshot.idx; }
+    index_t stable_idx() const { return _stable_idx; }
     // Return the term of the last entry in the log,
     // or the snapshot term if the log is empty.
     // Used in elections to not vote for a candidate with
     // a less recent term.
     term_t last_term() const;
     // Return the number of log entries in memory
-    size_t in_memory_size() const {
-        return _log.size();
-    }
+    size_t in_memory_size() const { return _log.size(); }
     // Returns memory usage of the log entries in bytes
-    size_t memory_usage() const {
-        return _memory_usage;
-    }
+    size_t memory_usage() const { return _memory_usage; }
 
     // The function returns current snapshot state of the log
-    const snapshot_descriptor& get_snapshot() const {
-        return _snapshot;
-    }
+    const snapshot_descriptor& get_snapshot() const { return _snapshot; }
 
     // This call will update the log to point to the new snapshot
     // and will truncate the log prefix so that the number of
-    // remaining applied entries is <= max_trailing_entries and their total size is <= max_trailing_bytes.
-    // Return value specifies the size in bytes of the dropped log entries.
-    size_t apply_snapshot(snapshot_descriptor&& snp, size_t max_trailing_entries, size_t max_trailing_bytes);
+    // remaining applied entries is <= max_trailing_entries and their total size
+    // is <= max_trailing_bytes. Return value specifies the size in bytes of the
+    // dropped log entries.
+    size_t apply_snapshot(snapshot_descriptor&& snp, size_t max_trailing_entries,
+                          size_t max_trailing_bytes);
 
     // 3.5
     // Raft maintains the following properties, which
@@ -172,13 +167,14 @@ public:
     // operation on the log.
     const configuration& get_configuration() const;
 
-    // Return the last configuration entry with index smaller than or equal to `idx`.
-    // Precondition: `last_idx()` >= `idx` >= `get_snapshot().idx`;
-    // there is no way in general to learn configurations before the last snapshot.
+    // Return the last configuration entry with index smaller than or equal to
+    // `idx`. Precondition: `last_idx()` >= `idx` >= `get_snapshot().idx`; there
+    // is no way in general to learn configurations before the last snapshot.
     const configuration& last_conf_for(index_t idx) const;
 
     // Return the previous configuration, if available (otherwise return nullptr).
-    // The returned pointer, if not null, is only valid until the next operation on the log.
+    // The returned pointer, if not null, is only valid until the next operation
+    // on the log.
     const configuration* get_prev_configuration() const;
 
     // Called on a follower to append entries from a leader.
@@ -190,22 +186,23 @@ public:
     // The log keeps track of the memory it uses. This function returns the number
     // of bytes that will be marked as used when a log_entry is added to the log.
     // This logic should match the handling of log_limiter_semaphore,
-    // which is currently incremented only for command, but not for configuration and log_entry::dummy.
-    // This is why zero is returned for other log_entry elements
-    // and why this function has been kept separate from entry_size,
+    // which is currently incremented only for command, but not for configuration
+    // and log_entry::dummy. This is why zero is returned for other log_entry
+    // elements and why this function has been kept separate from entry_size,
     // which returns non-zero for configuration.
     template <typename T>
-    requires std::is_same_v<T, log_entry> ||
-             std::is_same_v<T, command> || std::is_same_v<T, configuration> || std::is_same_v<T, log_entry::dummy>
+        requires std::is_same_v<T, log_entry> || std::is_same_v<T, command> ||
+                 std::is_same_v<T, configuration> || std::is_same_v<T, log_entry::dummy>
     static inline size_t memory_usage_of(const T& v, size_t max_command_size) {
-        if constexpr(std::is_same_v<T, command>) {
+        if constexpr (std::is_same_v<T, command>) {
             // We account for sizeof(log_entry) for "small" commands,
             // since the overhead of log_entries can take up significant memory.
-            return max_command_size > sizeof(log_entry) && v.size() < max_command_size - sizeof(log_entry)
-                ? v.size() + sizeof(log_entry)
-                : v.size();
+            return max_command_size > sizeof(log_entry) &&
+                           v.size() < max_command_size - sizeof(log_entry)
+                       ? v.size() + sizeof(log_entry)
+                       : v.size();
         }
-        if constexpr(std::is_same_v<T, log_entry>) {
+        if constexpr (std::is_same_v<T, log_entry>) {
             if (const auto* c = get_if<command>(&v.data); c != nullptr) {
                 return memory_usage_of(*c, max_command_size);
             }
@@ -214,4 +211,4 @@ public:
     }
 };
 
-}
+}  // namespace raft

@@ -1,8 +1,9 @@
 #pragma once
-#include "karma-raft/raft.hh"
 #include <cstdint>
 #include <map>
 #include <vector>
+
+#include "karma-raft/raft.hh"
 namespace service {
 struct config {
     uint64_t m_id;
@@ -11,6 +12,5 @@ struct config {
     std::string m_store_path;
     uint64_t m_count;
     std::map<uint64_t, std::string> m_members;
-    
 };
-};
+};  // namespace service

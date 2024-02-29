@@ -1,19 +1,19 @@
 #pragma once
-#include "co_context/all.hpp"
 #include <cstddef>
 #include <memory>
 #include <optional>
+
+#include "co_context/all.hpp"
 #include "co_context/co/channel.hpp"
 #include "co_context/io_context.hpp"
-#include "frame.h"
 #include "error.h"
+#include "frame.h"
 #include "write_task.h"
 namespace transport {
 class connection {
-public:
-    connection(std::shared_ptr<co_context::socket> socket, std::string addr, uint8_t port) 
-    : m_socket(socket)
-    , m_inet_address(addr, port) {
+   public:
+    connection(std::shared_ptr<co_context::socket> socket, std::string addr, uint8_t port)
+        : m_socket(socket), m_inet_address(addr, port) {
         co_context::co_spawn(loop());
     }
     ~connection() = default;
@@ -21,7 +21,7 @@ public:
         auto encoded = f->encode();
         auto total = encoded.length();
         auto ret = co_await m_socket->send(encoded);
-        std::cout << " i have write " << ret  << ", total " << total << std::endl;
+        std::cout << " i have write " << ret << ", total " << total << std::endl;
         if (ret < total) {
             co_return connection_error::network_error;
         }
@@ -42,7 +42,7 @@ public:
     };
 
     co_context::task<std::shared_ptr<frame>> read_frame() {
-        while(true) {
+        while (true) {
             auto res = parse_frame();
             if (res.has_value()) {
                 auto f = res.value();
@@ -59,16 +59,17 @@ public:
             char buf[128] = {0};
             std::cout << "to wait: " << m_socket.use_count() << std::endl;
             auto read_size = co_await m_socket->recv(buf);
-            std::cout << "end wait, read_size: "  << read_size << std::endl;
+            std::cout << "end wait, read_size: " << read_size << std::endl;
             m_buffer.insert(m_buffer.end(), buf, buf + read_size);
             if (read_size == 0) {
                 std::cout << "size = 0" << std::endl;
                 // throw frame_error::connection_reset();
-            } 
+            }
         };
     };
     co_context::task<std::optional<connection_error>> write_frame(std::shared_ptr<frame> f) {
-        std::shared_ptr<co_context::channel<std::optional<connection_error>, 0>> observer = std::make_shared<co_context::channel<std::optional<connection_error>, 0>>();
+        std::shared_ptr<co_context::channel<std::optional<connection_error>, 0>> observer =
+            std::make_shared<co_context::channel<std::optional<connection_error>, 0>>();
         write_task task;
         task.m_frame = f;
         task.m_observer = observer;
@@ -76,7 +77,8 @@ public:
         auto result = co_await observer->acquire();
         co_return result;
     };
-private:
+
+   private:
     co_context::task<void> loop() {
         while (1) {
             auto task = co_await m_write_task_chan.acquire();
@@ -84,7 +86,6 @@ private:
             auto ret = co_await write(task.m_frame);
 
             co_await task.m_observer->release(ret);
-            
         };
     }
     co_context::inet_address m_inet_address;
@@ -92,4 +93,4 @@ private:
     co_context::channel<write_task> m_write_task_chan;
     std::string m_buffer;
 };
-}
+}  // namespace transport

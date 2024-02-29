@@ -7,15 +7,16 @@
  */
 #pragma once
 
+#include <iostream>
+#include <variant>
+
 #include "co_context/co/channel.hpp"
 #include "co_context/co/condition_variable.hpp"
 #include "co_context/co/mutex.hpp"
 #include "co_context/log/log.hpp"
+#include "log.hh"
 #include "raft.hh"
 #include "tracker.hh"
-#include "log.hh"
-#include <iostream>
-#include <variant>
 
 namespace raft {
 
@@ -48,10 +49,9 @@ struct fsm_output {
 
     // True if there is no new output
     bool empty() const {
-        return !term_and_vote &&
-            log_entries.size() == 0 && messages.size() == 0 &&
-            committed.size() == 0 && !snp && snps_to_drop.empty() &&
-            !configuration && !max_read_id_with_quorum;
+        return !term_and_vote && log_entries.size() == 0 && messages.size() == 0 &&
+               committed.size() == 0 && !snp && snps_to_drop.empty() && !configuration &&
+               !max_read_id_with_quorum;
     }
 };
 
@@ -84,12 +84,12 @@ struct follower {
     server_id current_leader;
 };
 struct candidate {
-     // Votes received during an election round.
+    // Votes received during an election round.
     raft::votes votes;
     // True if the candidate in prevote state
     bool is_prevote;
-    candidate(configuration configuration, bool prevote) :
-               votes(std::move(configuration)), is_prevote(prevote) {}
+    candidate(configuration configuration, bool prevote)
+        : votes(std::move(configuration)), is_prevote(prevote) {}
 };
 struct leader {
     // A state for each follower
@@ -102,13 +102,13 @@ struct leader {
     // contains a time point in the future the transfer will be aborted at
     // unless completes successfully till then.
     std::optional<logical_clock::time_point> stepdown;
-    // If timeout_now was already sent to one of the followers contains the id of the follower
-    // it was sent to
+    // If timeout_now was already sent to one of the followers contains the id of
+    // the follower it was sent to
     std::optional<server_id> timeout_now_sent;
-    // A source of read ids - a monotonically growing (in single term) identifiers of
-    // reads issued by the state machine. Using monotonic ids allows the leader to
-    // resolve all preceding read requests when a quorum of acks from followers arrive
-    // to any newer request without tracking each request individually.
+    // A source of read ids - a monotonically growing (in single term) identifiers
+    // of reads issued by the state machine. Using monotonic ids allows the leader
+    // to resolve all preceding read requests when a quorum of acks from followers
+    // arrive to any newer request without tracking each request individually.
     read_id last_read_id{0};
     // Set to true when last_read_id increases and reset back in get_output() call
     bool last_read_id_changed = false;
@@ -173,7 +173,8 @@ class fsm {
     failure_detector& _failure_detector;
     // fsm configuration
     fsm_config _config;
-    // This is set to true when leadership transfer process is aborted due to a timeout
+    // This is set to true when leadership transfer process is aborted due to a
+    // timeout
     bool _abort_leadership_transfer = false;
     // Set if we want to actively search for a leader.
     // Can be true only if the leader is not known
@@ -192,10 +193,9 @@ class fsm {
 
         bool is_equal(const fsm& fsm) const {
             return _current_term == fsm._current_term && _voted_for == fsm._voted_for &&
-                _commit_idx == fsm._commit_idx &&
-                _last_conf_idx == fsm._log.last_conf_idx() &&
-                _last_term == fsm._log.last_term() &&
-                _abort_leadership_transfer == fsm._abort_leadership_transfer;
+                   _commit_idx == fsm._commit_idx && _last_conf_idx == fsm._log.last_conf_idx() &&
+                   _last_term == fsm._log.last_term() &&
+                   _abort_leadership_transfer == fsm._abort_leadership_transfer;
         }
 
         void advance(const fsm& fsm) {
@@ -218,9 +218,10 @@ class fsm {
     // A random value in range [election_timeout + 1, 2 * election_timeout),
     // reset on each term change. For testing, it's necessary to have the value
     // at election_timeout without becoming a candidate.
-    logical_clock::duration _randomized_election_timeout = ELECTION_TIMEOUT + logical_clock::duration{1};
+    logical_clock::duration _randomized_election_timeout =
+        ELECTION_TIMEOUT + logical_clock::duration{1};
 
-private:
+   private:
     // Holds all replies to AppendEntries RPC which are not
     // yet sent out. If AppendEntries request is accepted, we must
     // withhold a reply until the respective entry is persisted in
@@ -304,21 +305,13 @@ private:
 
     void reset_election_timeout();
 
-    candidate& candidate_state() {
-        return std::get<candidate>(_state);
-    }
+    candidate& candidate_state() { return std::get<candidate>(_state); }
 
-    const candidate& candidate_state() const {
-        return std::get<candidate>(_state);
-    }
+    const candidate& candidate_state() const { return std::get<candidate>(_state); }
 
-    follower& follower_state() {
-        return std::get<follower>(_state);
-    }
+    follower& follower_state() { return std::get<follower>(_state); }
 
-    const follower& follower_state() const {
-        return std::get<follower>(_state);
-    }
+    const follower& follower_state() const { return std::get<follower>(_state); }
 
     void send_timeout_now(server_id);
 
@@ -338,65 +331,40 @@ private:
 
     // Process received read_quorum_reply on a leader
     void handle_read_quorum_reply(server_id, const read_quorum_reply&);
-protected: // For testing
 
+   protected:  // For testing
     void become_follower(server_id leader);
 
-    leader& leader_state() {
-        return std::get<leader>(_state);
-    }
+    leader& leader_state() { return std::get<leader>(_state); }
 
-    const leader& leader_state() const {
-        return std::get<leader>(_state);
-    }
+    const leader& leader_state() const { return std::get<leader>(_state); }
 
-    log& get_log() {
-        return _log;
-    }
+    log& get_log() { return _log; }
 
-public:
+   public:
     explicit fsm(server_id id, term_t current_term, server_id voted_for, log log,
-            index_t commit_idx, failure_detector& failure_detector, fsm_config conf);
+                 index_t commit_idx, failure_detector& failure_detector, fsm_config conf);
 
     explicit fsm(server_id id, term_t current_term, server_id voted_for, log log,
-            failure_detector& failure_detector, fsm_config conf);
+                 failure_detector& failure_detector, fsm_config conf);
 
-    bool is_leader() const {
-        return std::holds_alternative<leader>(_state);
-    }
-    bool is_follower() const {
-        return std::holds_alternative<follower>(_state);
-    }
-    bool is_candidate() const {
-        return std::holds_alternative<candidate>(_state);
-    }
+    bool is_leader() const { return std::holds_alternative<leader>(_state); }
+    bool is_follower() const { return std::holds_alternative<follower>(_state); }
+    bool is_candidate() const { return std::holds_alternative<candidate>(_state); }
     bool is_prevote_candidate() const {
         return is_candidate() && std::get<candidate>(_state).is_prevote;
     }
-    index_t log_last_idx() const {
-        return _log.last_idx();
-    }
-    term_t log_last_term() const {
-        return _log.last_term();
-    }
-    index_t commit_idx() const {
-        return _commit_idx;
-    }
-    std::optional<term_t> log_term_for(index_t idx) const {
-        return _log.term_for(idx);
-    }
-    index_t log_last_snapshot_idx() const {
-        return _log.get_snapshot().idx;
-    }
-    index_t log_last_conf_idx() const {
-        return _log.last_conf_idx();
-    }
+    index_t log_last_idx() const { return _log.last_idx(); }
+    term_t log_last_term() const { return _log.last_term(); }
+    index_t commit_idx() const { return _commit_idx; }
+    std::optional<term_t> log_term_for(index_t idx) const { return _log.term_for(idx); }
+    index_t log_last_snapshot_idx() const { return _log.get_snapshot().idx; }
+    index_t log_last_conf_idx() const { return _log.last_conf_idx(); }
 
-    // Return the last configuration entry with index smaller than or equal to `idx`.
-    // Precondition: `log_last_idx()` >= `idx` >= `log_last_snapshot_idx()`.
-    const configuration& log_last_conf_for(index_t idx) const {
-        return _log.last_conf_for(idx);
-    }
+    // Return the last configuration entry with index smaller than or equal to
+    // `idx`. Precondition: `log_last_idx()` >= `idx` >=
+    // `log_last_snapshot_idx()`.
+    const configuration& log_last_conf_for(index_t idx) const { return _log.last_conf_for(idx); }
 
     server_id current_leader() const {
         if (is_leader()) {
@@ -418,14 +386,16 @@ public:
     // go below max_log_size.
     // Can only be called on a leader.
     // On abort throws `semaphore_aborted`.
-    // future<semaphore_units<>> wait_for_memory_permit(seastar::abort_source* as, size_t size);
+    // future<semaphore_units<>> wait_for_memory_permit(seastar::abort_source* as,
+    // size_t size);
 
     // Return current configuration.
     const configuration& get_configuration() const;
 
     // Add an entry to in-memory log. The entry has to be
     // committed to the persistent Raft log afterwards.
-    template<typename T> const log_entry& add_entry(T command);
+    template <typename T>
+    const log_entry& add_entry(T command);
 
     // Wait until there is, and return state machine output that
     // needs to be handled.
@@ -467,32 +437,25 @@ public:
 
     void stop();
 
-    term_t get_current_term() const {
-        return _current_term;
-    }
+    term_t get_current_term() const { return _current_term; }
 
     // How much time has passed since last election or last
     // time we heard from a valid leader.
-    logical_clock::duration election_elapsed() const {
-        return _clock.now() - _last_election_time;
-    }
+    logical_clock::duration election_elapsed() const { return _clock.now() - _last_election_time; }
 
     // This call will update the log to point to the new snapshot
     // and will truncate the log prefix so that the number of
-    // remaining applied entries is <= max_trailing_entries and their total size is <= max_trailing_bytes.
-    // Returns false if the snapshot is older than existing one,
-    // the passed snapshot will be dropped in this case.
-    bool apply_snapshot(snapshot_descriptor snp, size_t max_trailing_entries, size_t max_trailing_bytes, bool local);
+    // remaining applied entries is <= max_trailing_entries and their total size
+    // is <= max_trailing_bytes. Returns false if the snapshot is older than
+    // existing one, the passed snapshot will be dropped in this case.
+    bool apply_snapshot(snapshot_descriptor snp, size_t max_trailing_entries,
+                        size_t max_trailing_bytes, bool local);
 
     std::optional<std::pair<read_id, index_t>> start_read_barrier(server_id requester);
 
-    size_t in_memory_log_size() const {
-        return _log.in_memory_size();
-    }
+    size_t in_memory_log_size() const { return _log.in_memory_size(); }
 
-    size_t log_memory_usage() const {
-        return _log.memory_usage();
-    };
+    size_t log_memory_usage() const { return _log.memory_usage(); };
 
     server_id id() const { return _my_id; }
 
@@ -511,8 +474,7 @@ void fsm::step(server_id from, const leader& s, Message&& msg) {
     } else if constexpr (std::is_same_v<Message, vote_request>) {
         request_vote(from, std::move(msg));
     } else if constexpr (std::is_same_v<Message, install_snapshot>) {
-        send_to(from, snapshot_reply{.current_term = _current_term,
-                     .success = false });
+        send_to(from, snapshot_reply{.current_term = _current_term, .success = false});
     } else if constexpr (std::is_same_v<Message, snapshot_reply>) {
         install_snapshot_reply(from, std::move(msg));
     } else if constexpr (std::is_same_v<Message, read_quorum_reply>) {
@@ -527,8 +489,7 @@ void fsm::step(server_id from, const candidate& c, Message&& msg) {
     } else if constexpr (std::is_same_v<Message, vote_reply>) {
         request_vote_reply(from, std::move(msg));
     } else if constexpr (std::is_same_v<Message, install_snapshot>) {
-        send_to(from, snapshot_reply{.current_term = _current_term,
-                     .success = false });
+        send_to(from, snapshot_reply{.current_term = _current_term, .success = false});
     }
 }
 
@@ -540,15 +501,16 @@ void fsm::step(server_id from, const follower& c, Message&& msg) {
         request_vote(from, std::move(msg));
     } else if constexpr (std::is_same_v<Message, install_snapshot>) {
         send_to(from, snapshot_reply{.current_term = _current_term,
-                    .success = apply_snapshot(std::move(msg.snp), 0, 0, false)});
+                                     .success = apply_snapshot(std::move(msg.snp), 0, 0, false)});
     } else if constexpr (std::is_same_v<Message, timeout_now>) {
         // Leadership transfers never use pre-vote; we know we are not
         // recovering from a partition so there is no need for the
         // extra round trip.
         become_candidate(false, true);
     } else if constexpr (std::is_same_v<Message, read_quorum>) {
-        // logger.trace("[{}] receive read_quorum from {} for read id {}", _my_id, from, msg.id);
-        
+        // logger.trace("[{}] receive read_quorum from {} for read id {}", _my_id,
+        // from, msg.id);
+
         advance_commit_idx(msg.leader_commit_idx);
         send_to(from, read_quorum_reply{_current_term, _commit_idx, msg.id});
     }
@@ -576,19 +538,19 @@ void fsm::step(server_id from, Message&& msg) {
     // a stale term number, it rejects the request.
     if (msg.current_term > _current_term) {
         server_id leader{};
-        
+
         co_context::log::d("{} [term: {}] received a message with higher term from {} [term: {}]",
-            _my_id, _current_term, from, msg.current_term);
+                           _my_id, _current_term, from, msg.current_term);
 
         if constexpr (std::is_same_v<Message, append_request> ||
                       std::is_same_v<Message, install_snapshot> ||
                       std::is_same_v<Message, read_quorum>) {
             leader = from;
-        } else if constexpr (std::is_same_v<Message, read_quorum_reply> ) {
+        } else if constexpr (std::is_same_v<Message, read_quorum_reply>) {
             // Got a reply to read barrier with higher term. This should not happen.
             // Log and ignore
             co_context::log::e("{} [term: {}] ignoring read barrier reply with higher term {}",
-                _my_id, _current_term, msg.current_term);
+                               _my_id, _current_term, msg.current_term);
             return;
         }
 
@@ -610,13 +572,14 @@ void fsm::step(server_id from, Message&& msg) {
             update_current_term(msg.current_term);
         }
     } else if (msg.current_term < _current_term) {
-        if constexpr (std::is_same_v<Message, append_request> || std::is_same_v<Message, read_quorum>) {
+        if constexpr (std::is_same_v<Message, append_request> ||
+                      std::is_same_v<Message, read_quorum>) {
             // Instructs the leader to step down.
-            append_reply reply{_current_term, _commit_idx, append_reply::rejected{index_t{}, _log.last_idx()}};
+            append_reply reply{_current_term, _commit_idx,
+                               append_reply::rejected{index_t{}, _log.last_idx()}};
             send_to(from, std::move(reply));
         } else if constexpr (std::is_same_v<Message, install_snapshot>) {
-            send_to(from, snapshot_reply{.current_term = _current_term,
-                    .success = false});
+            send_to(from, snapshot_reply{.current_term = _current_term, .success = false});
         } else if constexpr (std::is_same_v<Message, vote_request>) {
             if (msg.is_prevote) {
                 send_to(from, vote_reply{_current_term, false, true});
@@ -624,7 +587,7 @@ void fsm::step(server_id from, Message&& msg) {
         } else {
             // Ignore other cases
             co_context::log::d("{} [term: {}] ignored a message with lower term from {} [term: {}]",
-                _my_id, _current_term, from, msg.current_term);
+                               _my_id, _current_term, from, msg.current_term);
         }
         return;
 
@@ -656,9 +619,12 @@ void fsm::step(server_id from, Message&& msg) {
             _last_election_time = _clock.now();
 
             if (current_leader() != from) {
-                co_context::log::e("Got append request/install snapshot/read_quorum from an unexpected leader\n");
+                co_context::log::e(
+                    "Got append request/install snapshot/read_quorum from an "
+                    "unexpected leader\n");
                 // return;
-                // on_internal_error_noexcept(logger, "Got append request/install snapshot/read_quorum from an unexpected leader");
+                // on_internal_error_noexcept(logger, "Got append request/install
+                // snapshot/read_quorum from an unexpected leader");
             }
         }
     }
@@ -670,4 +636,4 @@ void fsm::step(server_id from, Message&& msg) {
     std::visit(visitor, _state);
 }
 
-} // namespace raft
+}  // namespace raft

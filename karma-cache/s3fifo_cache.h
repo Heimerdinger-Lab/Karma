@@ -116,10 +116,8 @@
 //   RingBuffer<K, SizeS> small_;
 //   RingBuffer<K, SizeM> main_;
 //   RingBuffer<K, SizeM> ghost_;
-//   RingBuffer<uint32_t, SizeS + SizeM> free_loc_; /* could be reduced in size */
-//   std::unordered_map<K, uint32_t> key_to_loc_;
-//   std::unordered_set<K> ghost_contents_;
-//   V data_[SizeS + SizeM];
-//   uint8_t freq_[SizeS + SizeM]; /* could be reduced in size */
-//   UnderlyingStorage &underlying_storage_;
+//   RingBuffer<uint32_t, SizeS + SizeM> free_loc_; /* could be reduced in size
+//   */ std::unordered_map<K, uint32_t> key_to_loc_; std::unordered_set<K>
+//   ghost_contents_; V data_[SizeS + SizeM]; uint8_t freq_[SizeS + SizeM]; /*
+//   could be reduced in size */ UnderlyingStorage &underlying_storage_;
 // };

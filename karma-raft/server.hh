@@ -12,10 +12,7 @@
 
 namespace raft {
 
-enum class wait_type {
-    committed,
-    applied
-};
+enum class wait_type { committed, applied };
 
 // A single uniquely identified participant of a Raft group.
 // class server {
@@ -24,19 +21,24 @@ enum class wait_type {
 //         // automatically snapshot state machine after applying
 //         // this number of entries
 //         size_t snapshot_threshold = 1024;
-//         // Automatically snapshot state machine if the log memory usage exceeds this value.
+//         // Automatically snapshot state machine if the log memory usage
+//         exceeds this value.
 //         // The value is in bytes.
 //         // Must be smaller than max_log_size.
-//         // It is recommended to set this value to no more than half of the max_log_size,
-//         // so that snapshots are taken in advance and there is no backpressure due to max_log_size.
-//         size_t snapshot_threshold_log_size = 2 * 1024 * 1024;
+//         // It is recommended to set this value to no more than half of the
+//         max_log_size,
+//         // so that snapshots are taken in advance and there is no
+//         backpressure due to max_log_size. size_t snapshot_threshold_log_size
+//         = 2 * 1024 * 1024;
 //         // how many entries to leave in the log after taking a snapshot
 //         size_t snapshot_trailing = 200;
-//         // Limit on the total number of bytes, consumed by snapshot trailing entries.
+//         // Limit on the total number of bytes, consumed by snapshot trailing
+//         entries.
 //         // Must be smaller than snapshot_threshold_log_size.
-//         // It is recommended to set this value to no more than half of snapshot_threshold_log_size
-//         // so that not all memory is held for trailing when taking a snapshot.
-//         size_t snapshot_trailing_size = 1 * 1024 * 1024;
+//         // It is recommended to set this value to no more than half of
+//         snapshot_threshold_log_size
+//         // so that not all memory is held for trailing when taking a
+//         snapshot. size_t snapshot_trailing_size = 1 * 1024 * 1024;
 //         // max size of appended entries in bytes
 //         size_t append_request_threshold = 100000;
 //         // Limit in bytes on the size of in-memory part of the log after
@@ -44,7 +46,8 @@ enum class wait_type {
 //         // is shrunk back by a snapshot.
 //         // The following condition must be satisfied:
 //         // max_command_size <= max_log_size - snapshot_trailing_size
-//         // this ensures that trailing log entries won't block incoming commands and at least
+//         // this ensures that trailing log entries won't block incoming
+//         commands and at least
 //         // one command can fit in the log
 //         size_t max_log_size = 4 * 1024 * 1024;
 //         // If set to true will enable prevoting stage during election
@@ -55,10 +58,12 @@ enum class wait_type {
 //         // but makes timed_out_error more likely.
 //         bool enable_forwarding = false;
 
-//         // Max size of a single command, add_entry with a bigger command will throw command_is_too_big_error.
+//         // Max size of a single command, add_entry with a bigger command will
+//         throw command_is_too_big_error.
 //         // The following condition must be satisfied:
 //         // max_command_size <= max_log_size - snapshot_trailing_size
-//         // this ensures that trailing log entries won't block incoming commands and at least
+//         // this ensures that trailing log entries won't block incoming
+//         commands and at least
 //         // one command can fit in the log
 //         size_t max_command_size = 100 * 1024;
 //         // A callback to invoke if one of internal server
@@ -70,27 +75,40 @@ enum class wait_type {
 //     // Add command to replicated log
 //     // Returned future is resolved depending on wait_type parameter:
 //     //  'committed' - when the entry is committed
-//     //  'applied'   - when the entry is applied (happens after it is committed)
+//     //  'applied'   - when the entry is applied (happens after it is
+//     committed)
 //     //
-//     // If forwarding is enabled and this is a follower, and the returned future resolves without exception,
-//     // this means that the entry is committed/applied locally (depending on the wait type).
-//     // Applied locally means the local state machine replica applied this command;
-//     // committed locally means simply that the commit index is beyond this entry's index.
+//     // If forwarding is enabled and this is a follower, and the returned
+//     future resolves without exception,
+//     // this means that the entry is committed/applied locally (depending on
+//     the wait type).
+//     // Applied locally means the local state machine replica applied this
+//     command;
+//     // committed locally means simply that the commit index is beyond this
+//     entry's index.
 //     //
-//     // The caller may pass a pointer to an abort_source to make the operation abortable.
+//     // The caller may pass a pointer to an abort_source to make the operation
+//     abortable.
 //     //
-//     // Successful `add_entry` with `wait_type::committed` does not guarantee that `state_machine::apply` will be called
-//     // locally for this entry. Between the commit and the application we may receive a snapshot containing this entry,
-//     // so the state machine's state 'jumps' forward in time, skipping the entry application.
-//     // However, for `wait_type::applied`, we guarantee that the entry will be applied locally with `state_machine::apply`.
-//     // If a snapshot causes the state machine to jump over the entry, `add_entry` will return `commit_status_unknown`
+//     // Successful `add_entry` with `wait_type::committed` does not guarantee
+//     that `state_machine::apply` will be called
+//     // locally for this entry. Between the commit and the application we may
+//     receive a snapshot containing this entry,
+//     // so the state machine's state 'jumps' forward in time, skipping the
+//     entry application.
+//     // However, for `wait_type::applied`, we guarantee that the entry will be
+//     applied locally with `state_machine::apply`.
+//     // If a snapshot causes the state machine to jump over the entry,
+//     `add_entry` will return `commit_status_unknown`
 //     // (even if the snapshot included that entry).
 //     //
 //     // Exceptions:
 //     // raft::commit_status_unknown
 //     //     Thrown if the leader has changed and the log entry has either
-//     //     been replaced by the new leader or the server has lost track of it.
-//     //     It may also be thrown in case of a transport error while forwarding add_entry to the leader.L
+//     //     been replaced by the new leader or the server has lost track of
+//     it.
+//     //     It may also be thrown in case of a transport error while
+//     forwarding add_entry to the leader.L
 //     // raft::dropped_entry
 //     //     Thrown if the entry was replaced because of a leader change.
 //     // raft::request_aborted
@@ -98,8 +116,9 @@ enum class wait_type {
 //     // raft::stopped_error
 //     //     Thrown if abort() was called on the server instance.
 //     // raft::not_a_leader
-//     //     Thrown if the node is not a leader and forwarding is not enabled through enable_forwarding config option.
-//     virtual co_context::task<> add_entry(command command, wait_type type) = 0;
+//     //     Thrown if the node is not a leader and forwarding is not enabled
+//     through enable_forwarding config option. virtual co_context::task<>
+//     add_entry(command command, wait_type type) = 0;
 
 //     // Set a new cluster configuration. If the configuration is
 //     // identical to the previous one does nothing.
@@ -124,19 +143,24 @@ enum class wait_type {
 //     // uncertainty, thus commit_status_unknown exception may be
 //     // returned even in case of a successful config change.
 //     //
-//     // The caller may pass a pointer to an abort_source to make the operation abortable.
+//     // The caller may pass a pointer to an abort_source to make the operation
+//     abortable.
 //     //
 //     // Exceptions:
 //     // raft::conf_change_in_progress
-//     //     Thrown if the previous set_configuration/modify_config is not completed.
+//     //     Thrown if the previous set_configuration/modify_config is not
+//     completed.
 //     // raft::commit_status_unknown
-//     //     Thrown if the leader has changed and the config mutation has either
-//     //     been replaced by the new leader or the server has lost track of it.
+//     //     Thrown if the leader has changed and the config mutation has
+//     either
+//     //     been replaced by the new leader or the server has lost track of
+//     it.
 //     //     It may also be thrown in case of a transport error while
 //     //     forwarding the corresponding add_entry to the leader.
 //     // raft::request_aborted
 //     //     Thrown if abort is requested before the operation finishes.
-//     virtual co_context::task<> set_configuration(config_member_set c_new) = 0;
+//     virtual co_context::task<> set_configuration(config_member_set c_new) =
+//     0;
 
 //     // A simplified wrapper around set_configuration() which adds
 //     // and deletes servers. Unlike set_configuration(),
@@ -151,29 +175,40 @@ enum class wait_type {
 //     // This makes it possible to retry this command without
 //     // adverse effects to the configuration.
 //     //
-//     // If forwarding is enabled and this is a follower, and the returned future resolves without exception,
-//     // this means that a dummy entry appended after non-joint configuration entry was committed by the leader.
-//     // The local commit index is not necessarily up-to-date yet and the state of the local state machine
+//     // If forwarding is enabled and this is a follower, and the returned
+//     future resolves without exception,
+//     // this means that a dummy entry appended after non-joint configuration
+//     entry was committed by the leader.
+//     // The local commit index is not necessarily up-to-date yet and the state
+//     of the local state machine
 //     // replica may still come from before the configuration entry.
-//     // (exception: if no server was actually added or removed, then nothing gets committed and the leader responds immediately).
+//     // (exception: if no server was actually added or removed, then nothing
+//     gets committed and the leader responds immediately).
 //     //
-//     // The caller may pass a pointer to an abort_source to make the operation abortable.
-//     // If abort is requested before the operation finishes, the future will contain `raft::request_aborted` exception.
+//     // The caller may pass a pointer to an abort_source to make the operation
+//     abortable.
+//     // If abort is requested before the operation finishes, the future will
+//     contain `raft::request_aborted` exception.
 //     //
 //     // Exceptions:
 //     // raft::commit_status_unknown
-//     //     Thrown if the leader has changed and the config mutation has either
-//     //     been replaced by the new leader or the server has lost track of it.
-//     //     It may also be thrown in case of a transport error while forwarding modify_config to the leader.
+//     //     Thrown if the leader has changed and the config mutation has
+//     either
+//     //     been replaced by the new leader or the server has lost track of
+//     it.
+//     //     It may also be thrown in case of a transport error while
+//     forwarding modify_config to the leader.
 //     // raft::request_aborted
 //     //     Thrown if abort is requested before the operation finishes.
 //     // raft::stopped_error
 //     //     Thrown if abort() was called on the server instance.
 //     // raft::not_a_leader
-//     //     Thrown if the node is not a leader and forwarding is not enabled through enable_forwarding config option.
+//     //     Thrown if the node is not a leader and forwarding is not enabled
+//     through enable_forwarding config option.
 //     // raft::conf_change_in_progress
-//     //     Thrown if the previous set_configuration/modify_config is not completed.
-//     virtual co_context::task<> modify_config(std::vector<config_member> add,
+//     //     Thrown if the previous set_configuration/modify_config is not
+//     completed. virtual co_context::task<>
+//     modify_config(std::vector<config_member> add,
 //         std::vector<server_id> del) = 0;
 
 //     // Return the currently known configuration
@@ -203,7 +238,8 @@ enum class wait_type {
 //     // machine. The read should proceed only after the returned
 //     // future has resolved successfully.
 //     //
-//     // The caller may pass a pointer to an abort_source to make the operation abortable.
+//     // The caller may pass a pointer to an abort_source to make the operation
+//     abortable.
 //     //
 //     // Exceptions:
 //     // raft::request_aborted
@@ -218,7 +254,8 @@ enum class wait_type {
 //     // raft::timeout_error
 //     //     Thrown in case of timeout.
 //     // raft::not_a_leader
-//     //     Thrown if the node is not a leader and forwarding is not enabled through enable_forwarding config option.
+//     //     Thrown if the node is not a leader and forwarding is not enabled
+//     through enable_forwarding config option.
 //     // raft::no_other_voting_member
 //     //     Thrown if there is no other voting member.
 //     // std::logic_error
@@ -243,16 +280,18 @@ enum class wait_type {
 //     virtual co_context::task<> tick() = 0;
 
 //     // Returned future is resolved when state changes
-//     // State changes can be coalesced, so it is not guaranteed that the caller will
-//     // get notification about each one of them. The state can even be the same after
+//     // State changes can be coalesced, so it is not guaranteed that the
+//     caller will
+//     // get notification about each one of them. The state can even be the
+//     same after
 //     // the call as before, but term should be different.
 //     virtual co_context::task<> wait_for_state_change() = 0;
 
 //     // Ad hoc functions for testing
 //     virtual void wait_until_candidate() = 0;
 //     virtual co_context::task<> wait_election_done() = 0;
-//     virtual co_context::task<> wait_log_idx_term(std::pair<index_t, term_t> idx_log) = 0;
-//     virtual std::pair<index_t, term_t> log_last_idx_term() = 0;
+//     virtual co_context::task<> wait_log_idx_term(std::pair<index_t, term_t>
+//     idx_log) = 0; virtual std::pair<index_t, term_t> log_last_idx_term() = 0;
 //     virtual void elapse_election() = 0;
 //     // Server id of this server
 //     virtual raft::server_id id() const = 0;
@@ -261,9 +300,11 @@ enum class wait_type {
 //     virtual size_t max_command_size() const = 0;
 // };
 
-// std::unique_ptr<server> create_server(server_id uuid, std::unique_ptr<rpc> rpc,
-//         std::unique_ptr<state_machine> state_machine, std::unique_ptr<persistence> persistence,
-//         std::shared_ptr<failure_detector> failure_detector, server::configuration config);
+// std::unique_ptr<server> create_server(server_id uuid, std::unique_ptr<rpc>
+// rpc,
+//         std::unique_ptr<state_machine> state_machine,
+//         std::unique_ptr<persistence> persistence,
+//         std::shared_ptr<failure_detector> failure_detector,
+//         server::configuration config);
 
-} // namespace raft
-
+}  // namespace raft

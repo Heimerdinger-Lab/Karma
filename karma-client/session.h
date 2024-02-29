@@ -1,21 +1,21 @@
-#pragma once 
+#pragma once
+#include <cstdint>
+#include <memory>
+#include <unordered_map>
+
 #include "co_context/io_context.hpp"
 #include "karma-client/header.h"
+#include "karma-client/tasks/echo_task.h"
 #include "karma-client/tasks/read_task.h"
 #include "karma-client/tasks/task.h"
 #include "karma-client/tasks/write_task.h"
 #include "karma-transport/connection.h"
 #include "karma-transport/frame.h"
-#include "karma-client/tasks/echo_task.h"
 #include "protocol/rpc_generated.h"
-#include <cstdint>
-#include <memory>
-#include <unordered_map>
 namespace client {
 class session {
-public:
-    session(std::shared_ptr<transport::connection> connection)
-        : m_connection(connection) {
+   public:
+    session(std::shared_ptr<transport::connection> connection) : m_connection(connection) {
         co_context::co_spawn(loop());
     }
     co_context::task<void> write(std::shared_ptr<task> task) {
@@ -26,9 +26,10 @@ public:
             std::cout << "result: " << result.value() << std::endl;
         }
     };
-private:
+
+   private:
     co_context::task<void> loop() {
-        while(1) {
+        while (1) {
             auto f = co_await m_connection->read_frame();
             if (f->is_response()) {
                 std::cout << "response!!!!" << std::endl;
@@ -45,11 +46,10 @@ private:
                     // co_context::co_spawn(s->callback(f));
                     co_await s->callback(f);
                 }
-
             }
         }
     };
     std::shared_ptr<transport::connection> m_connection;
     std::unordered_map<uint32_t, std::shared_ptr<task>> m_inflight_requests;
 };
-}
+}  // namespace client

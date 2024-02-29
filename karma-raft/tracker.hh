@@ -14,16 +14,17 @@ namespace raft {
 
 // Leader's view of each follower, including self.
 class follower_progress {
-public:
+   public:
     // Id of this server
     const server_id id;
     // Index of the next log entry to send to this server.
     // Invariant: next_idx > match_idx.
     index_t next_idx;
     // Index of the highest log entry known to be replicated to this server.
-    // More specifically, this is the greatest `last_new_idx` received from this follower
-    // in an `accepted` message. As long as the follower remains in our term we know
-    // that its log must match with ours up to (and including) `match_idx`.
+    // More specifically, this is the greatest `last_new_idx` received from this
+    // follower in an `accepted` message. As long as the follower remains in our
+    // term we know that its log must match with ours up to (and including)
+    // `match_idx`.
     index_t match_idx = index_t(0);
     // Index that we know to be committed by the follower
     index_t commit_idx = index_t(0);
@@ -48,12 +49,13 @@ public:
     size_t in_flight = 0;
     static constexpr size_t max_in_flight = 10;
 
-    // Check if a reject packet should be ignored because it was delayed or reordered.
-    // This is not 100% accurate (may return false negatives) and should only be relied on
-    // for liveness optimizations, not for safety.
+    // Check if a reject packet should be ignored because it was delayed or
+    // reordered. This is not 100% accurate (may return false negatives) and
+    // should only be relied on for liveness optimizations, not for safety.
     //
-    // Precondition: we are the leader and `r.current_term` is equal to our term (`_current_term`).
-    // Postcondition: if the function returns `false` it is guaranteed that:
+    // Precondition: we are the leader and `r.current_term` is equal to our term
+    // (`_current_term`). Postcondition: if the function returns `false` it is
+    // guaranteed that:
     // 1. `match_idx < r.non_matching_idx`.
     // 2. `match_idx < r.last_idx + 1`.
     // 3. If we're in PROBE mode then `next_idx == r.non_matching_idx + 1`.
@@ -75,22 +77,20 @@ public:
     bool can_send_to();
 
     follower_progress(server_id id_arg, index_t next_idx_arg)
-        : id(id_arg), next_idx(next_idx_arg)
-    {}
+        : id(id_arg), next_idx(next_idx_arg) {}
 };
 
 using progress = std::unordered_map<server_id, follower_progress>;
 
-class tracker: private progress {
+class tracker : private progress {
     std::unordered_set<server_id> _current_voters;
     std::unordered_set<server_id> _previous_voters;
 
     // Hide size() function we inherited from progress since
     // it is never right to use it directly in case of joint config
-    size_t size() const {
-        assert(false);
-    }
-public:
+    size_t size() const { assert(false); }
+
+   public:
     using progress::begin, progress::end, progress::cbegin, progress::cend, progress::size;
 
     // Return progress for a follower
@@ -99,37 +99,37 @@ public:
     // messages from removed followers.
     follower_progress* find(server_id dst) {
         auto it = this->progress::find(dst);
-        return  it == this->progress::end() ? nullptr : &it->second;
+        return it == this->progress::end() ? nullptr : &it->second;
     }
     void set_configuration(const configuration& configuration, index_t next_idx);
     // Calculate the current commit index based on the current
     // simple or joint quorum.
-    template<typename Index> Index committed(Index prev_commit_idx);
+    template <typename Index>
+    Index committed(Index prev_commit_idx);
 
     class activity_tracker {
         tracker& _tracker;
         size_t _cur = 0;
         size_t _prev = 0;
         activity_tracker(tracker& t) : _tracker(t) {}
-    public:
+
+       public:
         void operator()(server_id id) {
             _cur += _tracker._current_voters.contains(id);
             _prev += _tracker._previous_voters.contains(id);
         }
 
         operator bool() const {
-            bool active = _cur >= _tracker._current_voters.size()/2 + 1;
+            bool active = _cur >= _tracker._current_voters.size() / 2 + 1;
             if (!_tracker._previous_voters.empty()) {
-                active &= _prev >= _tracker._previous_voters.size()/2 + 1;
+                active &= _prev >= _tracker._previous_voters.size() / 2 + 1;
             }
             return active;
         }
         friend tracker;
     };
 
-    activity_tracker get_activity_tracker() {
-        return activity_tracker(*this);
-    }
+    activity_tracker get_activity_tracker() { return activity_tracker(*this); }
 
     friend activity_tracker;
 };
@@ -154,7 +154,8 @@ class election_tracker {
     // Votes collected
     std::unordered_set<server_id> _responded;
     size_t _granted = 0;
-public:
+
+   public:
     election_tracker(const config_member_set& configuration) {
         for (const auto& s : configuration) {
             if (s.can_vote) {
@@ -190,14 +191,13 @@ class votes {
     server_address_set _voters;
     election_tracker _current;
     std::optional<election_tracker> _previous;
-public:
+
+   public:
     votes(configuration configuration);
 
     // A server is a member of this set iff
     // it is a voter in the current or previous configuration.
-    const server_address_set& voters() const {
-        return _voters;
-    }
+    const server_address_set& voters() const { return _voters; }
 
     void register_vote(server_id from, bool granted);
     vote_result tally_votes() const;
@@ -205,5 +205,4 @@ public:
     friend std::ostream& operator<<(std::ostream& os, const votes& v);
 };
 
-} // namespace raft
-
+}  // namespace raft

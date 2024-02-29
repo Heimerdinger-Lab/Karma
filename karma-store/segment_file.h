@@ -1,48 +1,38 @@
 #pragma once
-#include "karma-store/buf/aligned_buf.h"
-#include "karma-store/buf/aligned_buf_writer.h"
-#include "karma-store/buf/aligned_buf_reader.h"
-#include "karma-util/crc32c.h"
-#include "karma-util/sslice.h"
-#include <cstdint>
 #include <fcntl.h>
-#include <future>
-#include <memory>
-#include <string>
-#include <iostream>
 #include <unistd.h>
 
+#include <cstdint>
+#include <future>
+#include <iostream>
+#include <memory>
+#include <string>
+
+#include "karma-store/buf/aligned_buf.h"
+#include "karma-store/buf/aligned_buf_reader.h"
+#include "karma-store/buf/aligned_buf_writer.h"
+#include "karma-util/crc32c.h"
+#include "karma-util/sslice.h"
+
 class segment_file {
-public:
-    segment_file(uint64_t wal_offset, uint64_t size, std::string path) 
-        : m_wal_offset(wal_offset)
-        , m_size(size) 
-        , m_path(path)
-        , m_status(status::closed)
-        , m_written(0) {
+   public:
+    segment_file(uint64_t wal_offset, uint64_t size, std::string path)
+        : m_wal_offset(wal_offset),
+          m_size(size),
+          m_path(path),
+          m_status(status::closed),
+          m_written(0) {
         // std::cout << "wal_offset = " << wal_offset << std::endl;
         // std::cout << "m_size = " << m_size << std::endl;
         // std::cout << "m_path = " << m_path << std::endl;
     }
-    uint64_t wal_offset() {
-        return m_wal_offset;
-    }
-    uint64_t size() {
-        return m_size;
-    }
-    void set_read_status() {
-        m_status = status::read;
-    }
-    bool read_write_status() {
-        return m_status == status::read_write;
-    }
-    void set_read_write_status() {
-        m_status = status::read_write;
-    }
-    void set_written(uint64_t written) {
-        m_written = written;
-    }
-    void read_exact_at(sslice* data, uint32_t size, uint64_t wal_offset) {
+    uint64_t wal_offset() { return m_wal_offset; }
+    uint64_t size() { return m_size; }
+    void set_read_status() { m_status = status::read; }
+    bool read_write_status() { return m_status == status::read_write; }
+    void set_read_write_status() { m_status = status::read_write; }
+    void set_written(uint64_t written) { m_written = written; }
+    void read_exact_at(sslice *data, uint32_t size, uint64_t wal_offset) {
         if (size <= 0) return;
         auto buf = aligned_buf_reader::alloc_read_buf(wal_offset, size);
         // int ret = ::read(m_fd, buf->buf(), buf->capacity());
@@ -50,12 +40,8 @@ public:
         std::cout << "read ret = " << ret << std::endl;
         ::memcpy((char *)data->data(), buf->buf() + wal_offset - buf->wal_offset(), size);
     }
-    uint32_t cal_crc32(sslice &slice) {
-        return 0;
-    }
-    uint32_t cal_length_type(uint32_t size, uint8_t type) {
-        return size << 8 | type;
-    }
+    uint32_t cal_crc32(sslice &slice) { return 0; }
+    uint32_t cal_length_type(uint32_t size, uint8_t type) { return size << 8 | type; }
     uint64_t append_record(std::shared_ptr<aligned_buf_writer> writer, sslice slice) {
         // auto crc32 = cal_crc32(slice);
         uint32_t crc32 = crc32c::Value(slice.data(), slice.size());
@@ -83,7 +69,6 @@ public:
             m_written += len;
             return;
         }
-
 
         uint32_t padding_length = m_size - m_written - 4 - 4;
         // 有 padding_length 个0
@@ -117,13 +102,14 @@ public:
     }
     static void alloc_segment();
     bool can_hold(uint64_t size) {
-        std::cout << "m_status = " << m_status << ", wal_offset = " << m_wal_offset << ",m_written = " << m_written << ",size = " << size << ", m_szie = " << m_size << std::endl;
+        std::cout << "m_status = " << m_status << ", wal_offset = " << m_wal_offset
+                  << ",m_written = " << m_written << ",size = " << size << ", m_szie = " << m_size
+                  << std::endl;
         return (m_status == status::read_write) && (m_written + 8 + size <= m_size);
     }
-    int fd() {
-        return m_fd;
-    }
-private:
+    int fd() { return m_fd; }
+
+   private:
     enum status {
         closed,
         read_write,

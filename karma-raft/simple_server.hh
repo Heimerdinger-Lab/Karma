@@ -1,27 +1,30 @@
 #pragma once
-#include "co_context/co/channel.hpp"
-#include "co_context/io_context.hpp"
-#include "co_context/shared_task.hpp"
-#include "co_context/task.hpp"
-#include "protocol/rpc_generated.h"
-#include "raft.hh"
-#include "fsm.hh"
 #include <flatbuffers/flatbuffer_builder.h>
+
 #include <iostream>
 #include <map>
 #include <memory>
 #include <variant>
 #include <vector>
+
+#include "co_context/co/channel.hpp"
+#include "co_context/io_context.hpp"
+#include "co_context/shared_task.hpp"
+#include "co_context/task.hpp"
+#include "fsm.hh"
+#include "protocol/rpc_generated.h"
+#include "raft.hh"
 class sb_server {
-public:
+   public:
     // 外部
-    sb_server(raft::server_id id, std::unique_ptr<raft::state_machine> sm, std::unique_ptr<raft::rpc> rpc_, std::unique_ptr<raft::failure_detector> fd_, std::vector<raft::config_member> members) 
-        : _id(id)
-        , _state_machine(std::move(sm))
-        , _rpc(std::move(rpc_)) 
-        , _failure_detector(std::move(fd_))
-        , _members(members){
-        } 
+    sb_server(raft::server_id id, std::unique_ptr<raft::state_machine> sm,
+              std::unique_ptr<raft::rpc> rpc_, std::unique_ptr<raft::failure_detector> fd_,
+              std::vector<raft::config_member> members)
+        : _id(id),
+          _state_machine(std::move(sm)),
+          _rpc(std::move(rpc_)),
+          _failure_detector(std::move(fd_)),
+          _members(members) {}
     co_context::task<> start() {
         raft::snapshot_descriptor snp;
         snp.id = 0;
@@ -40,46 +43,52 @@ public:
         }
 
         auto log = raft::log(snp, std::move(_entries));
-        _fsm = std::make_unique<raft::fsm>(_id, _term, _vote_id, log, _commit_idx, *_failure_detector,
-                                    raft::fsm_config {
-                                        .append_request_threshold = 1024,
-                                        .max_log_size = 1024,
-                                        .enable_prevoting = false
-                                    });
+        _fsm = std::make_unique<raft::fsm>(
+            _id, _term, _vote_id, log, _commit_idx, *_failure_detector,
+            raft::fsm_config{
+                .append_request_threshold = 1024, .max_log_size = 1024, .enable_prevoting = false});
         co_context::co_spawn(io_fiber());
         co_return;
     }
-    void tick() {
-        _fsm->tick();
+    void tick() { _fsm->tick(); }
+    bool is_leader() { return _fsm->is_leader(); }
+    static std::shared_ptr<sb_server> create(raft::server_id id,
+                                             std::unique_ptr<raft::state_machine> sm,
+                                             std::unique_ptr<raft::rpc> rpc_,
+                                             std::unique_ptr<raft::failure_detector> fd_,
+                                             std::vector<raft::config_member> members) {
+        return std::make_shared<sb_server>(id, std::move(sm), std::move(rpc_), std::move(fd_),
+                                           members);
     }
-    bool is_leader() {
-        return _fsm->is_leader();
-    }
-    static std::shared_ptr<sb_server> create(raft::server_id id, std::unique_ptr<raft::state_machine> sm, std::unique_ptr<raft::rpc> rpc_, std::unique_ptr<raft::failure_detector> fd_, std::vector<raft::config_member> members) {
-        return std::make_shared<sb_server>(id, std::move(sm), std::move(rpc_), std::move(fd_), members);
-    }
-     
+
     void receive(raft::server_id from, raft::rpc_message msg) {
         if (std::holds_alternative<raft::append_request>(msg)) {
-            std::cout << "fsm::receive: " << "append_request" << std::endl;
+            std::cout << "fsm::receive: "
+                      << "append_request" << std::endl;
             _fsm->step(from, std::move(std::get<raft::append_request>(msg)));
         } else if (std::holds_alternative<raft::append_reply>(msg)) {
-            std::cout << "fsm::receive: " << "append_reply" << std::endl;
+            std::cout << "fsm::receive: "
+                      << "append_reply" << std::endl;
             _fsm->step(from, std::move(std::get<raft::append_reply>(msg)));
         } else if (std::holds_alternative<raft::vote_request>(msg)) {
-            std::cout << "fsm::receive: " << "vote_request" << std::endl;
+            std::cout << "fsm::receive: "
+                      << "vote_request" << std::endl;
             _fsm->step(from, std::move(std::get<raft::vote_request>(msg)));
         } else if (std::holds_alternative<raft::vote_reply>(msg)) {
-            std::cout << "fsm::receive: " << "vote_reply" << std::endl;
+            std::cout << "fsm::receive: "
+                      << "vote_reply" << std::endl;
             _fsm->step(from, std::move(std::get<raft::vote_reply>(msg)));
         } else if (std::holds_alternative<raft::timeout_now>(msg)) {
-            std::cout << "fsm::receive: " << "timeout_now" << std::endl;
+            std::cout << "fsm::receive: "
+                      << "timeout_now" << std::endl;
             _fsm->step(from, std::move(std::get<raft::timeout_now>(msg)));
         } else if (std::holds_alternative<raft::read_quorum>(msg)) {
-            std::cout << "fsm::receive: " << "read_quorum" << std::endl;
+            std::cout << "fsm::receive: "
+                      << "read_quorum" << std::endl;
             _fsm->step(from, std::move(std::get<raft::read_quorum>(msg)));
         } else if (std::holds_alternative<raft::read_quorum_reply>(msg)) {
-            std::cout << "fsm::receive: " << "read_quorum_reply" << std::endl;
+            std::cout << "fsm::receive: "
+                      << "read_quorum_reply" << std::endl;
             _fsm->step(from, std::move(std::get<raft::read_quorum_reply>(msg)));
         };
         // co_return;
@@ -112,19 +121,19 @@ public:
             co_await _rpc->send_append_entries_reply(id, std::get<raft::append_reply>(msg));
         } else if (std::holds_alternative<raft::vote_request>(msg)) {
             std::cout << "raft::vote_request: " << id << std::endl;
-           co_await  _rpc->send_vote_request(id, std::get<raft::vote_request>(msg));
+            co_await _rpc->send_vote_request(id, std::get<raft::vote_request>(msg));
         } else if (std::holds_alternative<raft::vote_reply>(msg)) {
             std::cout << "raft::vote_reply: " << id << std::endl;
-           co_await _rpc->send_vote_reply(id, std::get<raft::vote_reply>(msg));
+            co_await _rpc->send_vote_reply(id, std::get<raft::vote_reply>(msg));
         } else if (std::holds_alternative<raft::timeout_now>(msg)) {
             std::cout << "raft::timeout_now" << std::endl;
-           co_await _rpc->send_timeout_now(id, std::get<raft::timeout_now>(msg));
+            co_await _rpc->send_timeout_now(id, std::get<raft::timeout_now>(msg));
         } else if (std::holds_alternative<raft::read_quorum>(msg)) {
             std::cout << "raft::read_quorum" << std::endl;
-           co_await _rpc->send_read_quorum(id, std::get<raft::read_quorum>(msg));
+            co_await _rpc->send_read_quorum(id, std::get<raft::read_quorum>(msg));
         } else if (std::holds_alternative<raft::read_quorum_reply>(msg)) {
             std::cout << "raft::read_quorum_reply" << std::endl;
-           co_await _rpc->send_read_quorum_reply(id, std::get<raft::read_quorum_reply>(msg));
+            co_await _rpc->send_read_quorum_reply(id, std::get<raft::read_quorum_reply>(msg));
         }
         co_return;
     }
@@ -143,7 +152,7 @@ public:
                 // commit and apply
                 _commit_idx = output.committed.back()->idx;
                 std::vector<raft::command> commands;
-                for (auto &item : output.committed) {
+                for (auto& item : output.committed) {
                     if (std::holds_alternative<raft::command>(item->data)) {
                         auto cd = std::get<raft::command>(item->data);
                         commands.push_back(cd);
@@ -152,20 +161,20 @@ public:
                 std::cout << "commands.size = " << commands.size() << std::endl;
                 co_await _state_machine->apply(commands);
                 auto apply_idx = _commit_idx;
-                for (auto it = _commit_waiters.begin(); it != _commit_waiters.end(); ) {
+                for (auto it = _commit_waiters.begin(); it != _commit_waiters.end();) {
                     if (it->idx <= _commit_idx) {
                         co_await it->promise->release();
                         it = _commit_waiters.erase(it);
                     } else {
-                        it ++;
+                        it++;
                     }
                 }
-                for (auto it = _apply_waiters.begin(); it != _apply_waiters.end(); ) {
+                for (auto it = _apply_waiters.begin(); it != _apply_waiters.end();) {
                     if (it->idx <= apply_idx) {
                         co_await it->promise->release();
                         it = _apply_waiters.erase(it);
                     } else {
-                        it ++;
+                        it++;
                     }
                 }
                 _apply_idx = std::max(_apply_idx, apply_idx);
@@ -175,9 +184,7 @@ public:
             }
         }
     };
-    raft::index_t apply_index() {
-        return _apply_idx;
-    }
+    raft::index_t apply_index() { return _apply_idx; }
     co_context::task<> add_entry(raft::command command) {
         auto entry = _fsm->add_entry(command);
         co_await wait_for_commit(entry.idx);
@@ -194,18 +201,19 @@ public:
         flatbuffers::FlatBufferBuilder cmd_builder;
         auto key_ = cmd_builder.CreateString(key);
         auto value_ = cmd_builder.CreateString(value);
-        auto cmd = karma_rpc::CreateCommand(cmd_builder, karma_rpc::CommandType_VALUE, key_, value_);
+        auto cmd =
+            karma_rpc::CreateCommand(cmd_builder, karma_rpc::CommandType_VALUE, key_, value_);
         cmd_builder.Finish(cmd);
         auto buffer = cmd_builder.GetBufferPointer();
         int size = cmd_builder.GetSize();
-        std::cout << "1cmd_size" << size << std::endl; 
+        std::cout << "1cmd_size" << size << std::endl;
         std::string cmd_str;
         cmd_str.append(buffer, buffer + size);
         std::cout << "1cmd: " << cmd_str << std::endl;
         co_await add_entry(cmd_str);
     }
-    
-private:    
+
+   private:
     struct waiter {
         raft::index_t idx;
         std::shared_ptr<co_context::channel<std::monostate>> promise;
@@ -215,13 +223,13 @@ private:
     std::vector<waiter> _commit_waiters;
     std::vector<waiter> _apply_waiters;
 
-    // persistance 
+    // persistance
     raft::term_t _term;
     raft::server_id _vote_id;
     raft::index_t _commit_idx;
     std::vector<raft::log_entry_ptr> _entries;
 
-    // state machine 
+    // state machine
     // std::map<std::string, std::string> _values;
     std::unique_ptr<raft::state_machine> _state_machine;
 
@@ -231,7 +239,7 @@ private:
     std::unique_ptr<raft::failure_detector> _failure_detector;
 
     raft::index_t _apply_idx = 0;
-    
-    // 
+
+    //
     std::vector<raft::config_member> _members;
 };
