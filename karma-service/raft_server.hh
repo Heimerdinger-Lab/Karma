@@ -32,7 +32,7 @@ class raft_server {
         snp.id = 0;
         snp.idx = 0;
         snp.term = 0;
-        BOOST_LOG_TRIVIAL(debug) << "sb_server starting";
+        BOOST_LOG_TRIVIAL(debug) << "raft_server starting";
 
         // std::cout << "_members.size: " << _members.size() << std::endl;
         // for (auto& item : _members) {
@@ -93,9 +93,8 @@ class raft_server {
     }
     // 内部
     co_context::task<> wait_for_commit(raft::index_t idx) {
-        waiter w;
-        w.idx = idx;
-        w.promise = std::make_shared<co_context::channel<std::monostate>>();
+        auto channel = std::make_unique<co_context::channel<std::monostate>>();
+        waiter w{.idx = idx, .promise = channel.get()};
         _commit_waiters.push_back(w);
         co_await w.promise->acquire();
     }
@@ -103,9 +102,8 @@ class raft_server {
         if (idx >= apply_index()) {
             co_return;
         }
-        waiter w;
-        w.idx = idx;
-        w.promise = std::make_shared<co_context::channel<std::monostate>>();
+        auto channel = std::make_unique<co_context::channel<std::monostate>>();
+        waiter w{.idx = idx, .promise = channel.get()};
         _apply_waiters.push_back(w);
         co_await w.promise->acquire();
     }
@@ -214,7 +212,7 @@ class raft_server {
    private:
     struct waiter {
         raft::index_t idx;
-        std::shared_ptr<co_context::channel<std::monostate>> promise;
+        co_context::channel<std::monostate>* promise;
     };
     raft::server_id _id;
     std::unique_ptr<raft::fsm> _fsm;

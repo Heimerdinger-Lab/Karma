@@ -17,11 +17,11 @@
 #include "co_context/task.hpp"
 #include "karma-client/client.h"
 #include "karma-raft/raft.hh"
-#include "karma-raft/simple_server.hh"
 #include "karma-service/config.h"
 #include "karma-service/raft/raft_failure_detector.h"
 #include "karma-service/raft/raft_rpc.h"
 #include "karma-service/raft/raft_state_machine.h"
+#include "karma-service/raft_server.hh"
 #include "karma-service/session.h"
 namespace service {
 class worker {
@@ -39,8 +39,8 @@ class worker {
             raft::config_member member(address, true);
             members.push_back(member);
         }
-        m_raft =
-            sb_server::create(m_cfg.m_id, std::move(sm_), std::move(rpc_), std::move(fd_), members);
+        m_raft = raft_server::create(m_cfg.m_id, std::move(sm_), std::move(rpc_), std::move(fd_),
+                                     members);
 
         auto current_address = m_cfg.m_members[m_cfg.m_id];
         size_t pos = current_address.find(':');
@@ -51,7 +51,7 @@ class worker {
         co_context::inet_address addr(ip, std::stoi(port));
         m_ac = std::make_unique<co_context::acceptor>(addr);
         co_await m_raft->start();
-        co_context::co_spawn([](sb_server& service) -> co_context::task<> {
+        co_context::co_spawn([](raft_server& service) -> co_context::task<> {
             while (true) {
                 // std::cout << "tick, is_leader: " << service.is_leader() << std::endl;
                 BOOST_LOG_TRIVIAL(debug) << "tick";
@@ -79,7 +79,7 @@ class worker {
     config m_cfg;
     std::vector<std::unique_ptr<session>> m_sessions;
 
-    std::unique_ptr<sb_server> m_raft;
+    std::unique_ptr<raft_server> m_raft;
     std::unique_ptr<co_context::acceptor> m_ac;
 };
 }  // namespace service

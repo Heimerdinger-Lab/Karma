@@ -5,7 +5,7 @@
 #include "frame.h"
 namespace transport {
 struct write_task {
-    std::shared_ptr<frame> m_frame;
-    std::shared_ptr<co_context::channel<std::optional<connection_error>, 0>> m_observer;
+    frame& m_frame;
+    co_context::channel<std::optional<connection_error>>& m_observer;
 };
 }  // namespace transport

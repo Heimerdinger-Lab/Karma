@@ -10,6 +10,7 @@
 // #include <liburing.h>
 #include <filesystem>
 #include <map>
+#include <memory>
 #include <optional>
 #include <string>
 #include <vector>
@@ -20,18 +21,17 @@ class wal {
     // 打开所有文件
     void load_from_path(std::string directory_path) {
         m_directory_path = directory_path;
-        // std::vector<std::shared_ptr<segment_file>> segments;
         for (const auto& entry : fs::directory_iterator(directory_path)) {
             if (fs::is_regular_file(entry.path())) {
                 // entry.path().append("");
                 auto filename = entry.path().filename();
                 uint64_t wal_offset = std::stoi(filename);
                 m_segments.push_back(
-                    std::make_shared<segment_file>(wal_offset, entry.file_size(), entry.path()));
+                    std::make_unique<segment_file>(wal_offset, entry.file_size(), entry.path()));
             }
         }
         std::sort(m_segments.begin(), m_segments.end(),
-                  [](std::shared_ptr<segment_file> a, std::shared_ptr<segment_file> b) -> bool {
+                  [](std::unique_ptr<segment_file>& a, std::unique_ptr<segment_file>& b) -> bool {
                       return a->wal_offset() < b->wal_offset();
                   });
         for (const auto& item : m_segments) {
@@ -44,7 +44,7 @@ class wal {
     /// +---------+-----------+-----------+--- ... ---+
     bool scan_record(uint64_t& wal_offset, std::string& str) {
         // if (wal_offset)
-        for (const auto item : m_segments) {
+        for (const auto& item : m_segments) {
             if (item->wal_offset() <= wal_offset &&
                 item->wal_offset() + item->size() > wal_offset) {
                 int pos = wal_offset - item->wal_offset();
@@ -91,7 +91,7 @@ class wal {
         // 预分配一定的segment file
         // 1. 创建segment_file
         // 2. 调用segment_file.open
-        std::vector<std::shared_ptr<segment_file>> segments;
+        std::vector<std::unique_ptr<segment_file>> segments;
         // if (m_segments.empty()) {
         //     uint64_t wal_offset = 0;
         //     segments.push_back(std::make_shared<segment_file>(wal_offset,
@@ -114,32 +114,37 @@ class wal {
                 wal_offset = m_segments.back()->wal_offset() + m_segments.back()->size();
             }
             for (int i = 0; i < read_write_cnt; i++) {
-                segments.push_back(std::make_shared<segment_file>(
+                segments.push_back(std::make_unique<segment_file>(
                     wal_offset, 1048576, m_directory_path + "/" + std::to_string(wal_offset)));
                 wal_offset += 1048576;
             }
         }
         // if
-        for (const auto& item : segments) {
+        for (auto it = segments.begin(); it != segments.end(); it++) {
+            auto item = std::move(*it);
             item->open_and_create();
-            m_segments.push_back(item);
+            m_segments.push_back(std::move(item));
         }
+        // for (auto item : segments) {
+        //     item->open_and_create();
+        //     m_segments.push_back(std::move(item));
+        // }
     }
     void try_close_segment(uint64_t first_wal_offset) {
         // 如果segment的wal小于first_wal_offset
         // 那么它可以关闭和删除
     }
-    std::shared_ptr<segment_file> segment_file_of(uint64_t wal_offset) {
+    segment_file& segment_file_of(uint64_t wal_offset) {
         for (const auto& item : m_segments) {
             if (wal_offset >= item->wal_offset() &&
                 wal_offset < (item->wal_offset() + item->size())) {
-                return item;
+                return *item;
             }
         }
-        return nullptr;
+        // return nullptr;
     }
 
    private:
-    std::vector<std::shared_ptr<segment_file>> m_segments;
+    std::vector<std::unique_ptr<segment_file>> m_segments;
     std::string m_directory_path;
 };

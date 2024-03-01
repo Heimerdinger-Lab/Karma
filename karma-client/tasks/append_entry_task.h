@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include <memory>
 #include <variant>
 #include <vector>
 
@@ -12,8 +13,8 @@ class append_entry_reply : public task {
    public:
     append_entry_reply(uint64_t m_from_id, uint64_t m_group_id, raft::append_reply m_reply)
         : m_from_id(m_from_id), m_group_id(m_group_id), m_reply(m_reply) {}
-    std::shared_ptr<transport::frame> gen_frame() override {
-        auto ret_frame = std::make_shared<transport::frame>(
+    std::unique_ptr<transport::frame> gen_frame() override {
+        auto ret_frame = std::make_unique<transport::frame>(
             karma_rpc::OperationCode::OperationCode_APPEND_ENTRY);
         // header
         flatbuffers::FlatBufferBuilder header_builder;
@@ -40,9 +41,9 @@ class append_entry_reply : public task {
         ret_frame->flag_response();
         return ret_frame;
     }
-    co_context::task<void> callback(std::shared_ptr<transport::frame> reply_frame) override {}
-    static std::shared_ptr<append_entry_reply> from_frame(std::shared_ptr<transport::frame> frame) {
-        std::string buffer_header = frame->m_header;
+    co_context::task<void> callback(transport::frame &reply_frame) override {}
+    static std::unique_ptr<append_entry_reply> from_frame(transport::frame &frame) {
+        std::string buffer_header = frame.m_header;
         std::cout << "buffer_header.size: " << buffer_header.size() << std::endl;
         auto header = flatbuffers::GetRoot<karma_rpc::AppendEntryReply>(buffer_header.data());
         // raft::append_reply reply{.current_term = header->term(), .commit_idx =
@@ -62,7 +63,7 @@ class append_entry_reply : public task {
                     header->result_as_AppendEntryRejected()->last_idx())};
             reply.result = rejected;
         }
-        return std::make_shared<append_entry_reply>(header->from_id(), header->group_id(), reply);
+        return std::make_unique<append_entry_reply>(header->from_id(), header->group_id(), reply);
     }
     uint64_t from_id() { return m_from_id; }
     raft::append_reply reply() { return m_reply; }
@@ -76,8 +77,8 @@ class append_entry_request : public task {
    public:
     append_entry_request(uint64_t m_from_id, uint64_t m_group_id, raft::append_request m_request)
         : m_from_id(m_from_id), m_group_id(m_group_id), m_request(std::move(m_request)) {}
-    std::shared_ptr<transport::frame> gen_frame() override {
-        auto ret_frame = std::make_shared<transport::frame>(
+    std::unique_ptr<transport::frame> gen_frame() override {
+        auto ret_frame = std::make_unique<transport::frame>(
             karma_rpc::OperationCode::OperationCode_APPEND_ENTRY);
         // header
         flatbuffers::FlatBufferBuilder header_builder;
@@ -116,10 +117,9 @@ class append_entry_request : public task {
         ret_frame->flag_request();
         return ret_frame;
     }
-    static std::shared_ptr<append_entry_request> from_frame(
-        std::shared_ptr<transport::frame> frame) {
-        auto buffer_header = frame->m_header;
-        auto body = frame->m_data;
+    static std::unique_ptr<append_entry_request> from_frame(transport::frame &frame) {
+        auto buffer_header = frame.m_header;
+        auto body = frame.m_data;
         auto header = flatbuffers::GetRoot<karma_rpc::AppendEntryRequest>(buffer_header.data());
         // std::cout << "from_frame, header: " << header->msg()->str() << std::endl;
         // payload
@@ -156,10 +156,10 @@ class append_entry_request : public task {
             .leader_commit_idx = static_cast<raft::index_t>(header->leader_commit_idx()),
             .entries = entries};
 
-        return std::make_shared<append_entry_request>(header->from_id(), header->group_id(),
+        return std::make_unique<append_entry_request>(header->from_id(), header->group_id(),
                                                       request);
     };
-    co_context::task<void> callback(std::shared_ptr<transport::frame> reply_frame) override {}
+    co_context::task<void> callback(transport::frame &reply_frame) override {}
     uint64_t from_id() { return m_from_id; }
     raft::append_request request() { return m_request; }
 

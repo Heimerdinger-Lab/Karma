@@ -30,7 +30,7 @@ class composite_session {
     };
     composite_session(std::unique_ptr<session> sess) : m_session(std::move(sess)){};
 
-    co_context::task<void> request(std::shared_ptr<client::task> task) {
+    co_context::task<void> request(client::task& task) {
         auto session = std::move(pick_session());
         co_await session.write(task);
     }

@@ -65,7 +65,7 @@ class sivir : public std::enable_shared_from_this<sivir> {
         };
         // m_wal.try_open_segment();
         // 4. 创建工作线程
-        m_buf_writer = std::make_shared<aligned_buf_writer>(wal_offset);
+        m_buf_writer = std::make_unique<aligned_buf_writer>(wal_offset);
         m_window.commit(0, wal_offset);
         m_window.advance();
         std::cout << "m_window = " << m_window.commit_offset() << std::endl;
@@ -77,7 +77,7 @@ class sivir : public std::enable_shared_from_this<sivir> {
     };
     void start() {
         // co_context::io_context ctx_worker;
-        m_ctx = std::make_shared<co_context::io_context>();
+        m_ctx = std::make_unique<co_context::io_context>();
         auto sb = shared_from_this();
         m_ctx->co_spawn([](std::shared_ptr<sivir> s) -> co_context::task<> {
             co_await s->worker_run();
@@ -190,9 +190,9 @@ class sivir : public std::enable_shared_from_this<sivir> {
         // std::shared_ptr<std::queue<write_result>> m_channel;
         // std::shared_ptr<std::promise<write_result>> m_prom;
 
-        std::shared_ptr<co_context::channel<write_result>> m_prom;
+        co_context::channel<write_result> &m_prom;
         // std::shared_ptr<co_context::io_context> m_ctx;
-        co_context::io_context *m_ctx;
+        co_context::io_context &m_ctx;
     };
 
     struct read_result {
@@ -206,8 +206,8 @@ class sivir : public std::enable_shared_from_this<sivir> {
         // observer
         // std::queue<read_result> m_channel;
         // std::shared_ptr<std::promise<read_result>> m_prom;
-        std::shared_ptr<co_context::channel<read_result>> m_prom;
-        co_context::io_context *m_ctx;
+        co_context::channel<read_result> &m_prom;
+        co_context::io_context &m_ctx;
     };
     struct record_pos {
         uint64_t wal_offset;
@@ -268,14 +268,14 @@ class sivir : public std::enable_shared_from_this<sivir> {
                 result.m_wal_offset = it->first - it->second->m_data.size() - 8;
                 result.m_size = it->second->m_data.size() + 8;
                 std::cout << "release one task" << std::endl;
-                it->second->m_ctx->co_spawn([]() -> co_context::task<> {
+                it->second->m_ctx.co_spawn([]() -> co_context::task<> {
                     std::cout << "hello" << std::endl;
                     co_return;
                 }());
                 co_context::io_context &current = co_context::this_io_context();
-                co_await co_context::resume_on(*it->second->m_ctx);
+                co_await co_context::resume_on(it->second->m_ctx);
                 // std::cout << "hello" << std::endl;
-                co_await it->second->m_prom->release(result);
+                co_await it->second->m_prom.release(result);
                 co_await co_context::resume_on(current);
                 // it->second->m_ctx.co_spawn([result](std::shared_ptr<co_context::channel<write_result>>
                 // prom) -> co_context::task<>{
@@ -284,7 +284,7 @@ class sivir : public std::enable_shared_from_this<sivir> {
                 //     co_return;
                 // }(it->second->m_prom));
                 // co_context::condition_variable
-                std::cout << "after release: " << it->second->m_prom->size() << std::endl;
+                std::cout << "after release: " << it->second->m_prom.size() << std::endl;
                 it = m_inflight_write_tasks.erase(it);
             } else {
                 break;
@@ -306,9 +306,9 @@ class sivir : public std::enable_shared_from_this<sivir> {
         }
         // co_await m_inflight_read_tasks[idx]->m_prom->release(res);
         co_context::io_context &current = co_context::this_io_context();
-        co_await co_context::resume_on(*m_inflight_read_tasks[idx]->m_ctx);
+        co_await co_context::resume_on(m_inflight_read_tasks[idx]->m_ctx);
         // std::cout << "hello" << std::endl;
-        co_await m_inflight_read_tasks[idx]->m_prom->release(read_result{});
+        co_await m_inflight_read_tasks[idx]->m_prom.release(read_result{});
         co_await co_context::resume_on(current);
         m_inflight_read_tasks.erase(idx);
         // m_inflight_read_tasks[idx].m_channel.push(read_result {});
@@ -333,8 +333,8 @@ class sivir : public std::enable_shared_from_this<sivir> {
         // std::endl; std::cout << "full.size: " << m_buf_writer->m_full->size() <<
         // std::endl; std::cout << "barrier.size: " << m_barrier->size() <<
         // std::endl; 枚举所有full和current的buf m_buf_writer->write();
-        if (m_buf_writer->m_full->size()) {
-            for (auto it = m_buf_writer->m_full->begin(); it != m_buf_writer->m_full->end();) {
+        if (m_buf_writer->m_full.size()) {
+            for (auto it = m_buf_writer->m_full.begin(); it != m_buf_writer->m_full.end();) {
                 auto item = *it;
                 if (m_barrier.contains(item->wal_offset())) {
                     // 说明还有未完成的
@@ -344,8 +344,8 @@ class sivir : public std::enable_shared_from_this<sivir> {
                 auto sqe = io_uring_get_sqe(&m_data_ring);  // 从环中得到一块空位
                 // m_barrier.insert(item->wal_offset());
                 auto segment = m_wal.segment_file_of(item->wal_offset());
-                io_uring_prep_write(sqe, segment->fd(), item->buf(), item->capacity(),
-                                    item->wal_offset() - segment->wal_offset());
+                io_uring_prep_write(sqe, segment.fd(), item->buf(), item->capacity(),
+                                    item->wal_offset() - segment.wal_offset());
                 context *ctx = new context();
                 ctx->m_buf = item;
                 ctx->m_wal_offset = item->wal_offset();
@@ -355,7 +355,7 @@ class sivir : public std::enable_shared_from_this<sivir> {
                 std::cout << "1sqe: len = " << ctx->m_buf->limit() << std::endl;
                 std::cout << "1sqe: cap = " << ctx->m_buf->capacity() << std::endl;
                 io_uring_sqe_set_data(sqe, ctx);
-                it = m_buf_writer->m_full->erase(it);
+                it = m_buf_writer->m_full.erase(it);
             }
         }
 
@@ -368,8 +368,8 @@ class sivir : public std::enable_shared_from_this<sivir> {
             auto sqe = io_uring_get_sqe(&m_data_ring);  // 从环中得到一块空位
             m_barrier.insert(item->wal_offset());
             auto segment = m_wal.segment_file_of(item->wal_offset());
-            io_uring_prep_write(sqe, segment->fd(), item->buf(), item->capacity(),
-                                item->wal_offset() - segment->wal_offset());
+            io_uring_prep_write(sqe, segment.fd(), item->buf(), item->capacity(),
+                                item->wal_offset() - segment.wal_offset());
             context *ctx = new context();
             ctx->m_buf = item;
             ctx->m_wal_offset = item->wal_offset();
@@ -389,29 +389,29 @@ class sivir : public std::enable_shared_from_this<sivir> {
             // std::cout << "here" << std::endl;
             auto io_task = m_pending_io_tasks.back();
             m_pending_io_tasks.pop_back();
-            if (std::holds_alternative<std::shared_ptr<write_task>>(io_task)) {
+            if (std::holds_alternative<write_task *>(io_task)) {
                 // write
                 std::cout << "get write task, cursor" << m_buf_writer->cursor() << std::endl;
-                auto task = std::get<std::shared_ptr<write_task>>(io_task);
+                auto task = std::get<write_task *>(io_task);
                 // auto writer = m_buf_writer;
                 auto segment = m_wal.segment_file_of(m_buf_writer->cursor());
                 auto payload_length = task->m_data.size();
-                if (!segment->can_hold(payload_length)) {
+                if (!segment.can_hold(payload_length)) {
                     std::cout << "can't hold!!!" << std::endl;
-                    segment->append_footer(m_buf_writer);
-                    segment->set_read_status();
-                    m_pending_io_tasks.push_back(io_task);
+                    segment.append_footer(*m_buf_writer);
+                    segment.set_read_status();
+                    m_pending_io_tasks.push_back(task);
                     continue;
                 };
                 // segment->set_written(0);
                 // assert(task.m_data.size() == 11);
-                auto cursor = segment->append_record(m_buf_writer, task->m_data);
+                auto cursor = segment.append_record(*m_buf_writer, task->m_data);
                 m_inflight_write_tasks[cursor] = task;
                 // std::cout << "cursor = " << cursor << std::endl;
                 // need_write = true;
-            } else if (std::holds_alternative<std::shared_ptr<read_task>>(io_task)) {
+            } else if (std::holds_alternative<read_task *>(io_task)) {
                 // read
-                auto task = std::get<std::shared_ptr<read_task>>(io_task);
+                auto task = std::get<read_task *>(io_task);
                 // std::cout << "get read task: " << task->m_wal_offset << std::endl;
                 auto segment = m_wal.segment_file_of(task->m_wal_offset);
                 //
@@ -421,8 +421,12 @@ class sivir : public std::enable_shared_from_this<sivir> {
                           << ", len = " << task->m_len << std::endl;
                 std::cout << "buf->wal_offset" << buf->wal_offset()
                           << ", size: " << buf->capacity();
-                std::cout << "segment = " << segment->fd()
-                          << ", wal_offset = " << segment->wal_offset() << std::endl;
+                std::cout << "segment = " << segment.fd()
+                          << ", wal_offset = " << segment.wal_offset() << std::endl;
+                io_uring_prep_read(
+                    sqe, segment.fd(), buf->buf(), buf->capacity(),
+                    buf->wal_offset() - segment.wal_offset());  // 为这块空位准备好操作
+
                 context *ctx = new context();
                 ctx->m_buf = buf;
                 ctx->m_wal_offset = task->m_wal_offset;
@@ -430,9 +434,6 @@ class sivir : public std::enable_shared_from_this<sivir> {
                 ctx->m_opcode = 1;
                 ctx->m_read_idx = 2;
                 m_inflight_read_tasks[2] = task;
-                io_uring_prep_read(
-                    sqe, segment->fd(), buf->buf(), buf->capacity(),
-                    buf->wal_offset() - segment->wal_offset());  // 为这块空位准备好操作
                 io_uring_sqe_set_data(sqe, ctx);
             } else {
                 std::cout << "error !!! " << std::endl;
@@ -447,15 +448,11 @@ class sivir : public std::enable_shared_from_this<sivir> {
         // m_channel->push(IoTask);
         // std::cout << "record_size = " << record.size() << std::endl;
         // write_task task;
-        auto task = std::make_shared<write_task>();
-        task->m_data = record;
-        task->m_prom = std::make_shared<co_context::channel<write_result>>();
-        // task->m_ctx =
-        // std::make_shared<co_context::io_context>(&co_context::this_io_context());
-        task->m_ctx = &co_context::this_io_context();
-        m_channel.push(task);
+        auto channel = std::make_unique<co_context::channel<write_result>>();
+        auto task = std::make_unique<write_task>(record, *channel, co_context::this_io_context());
+        m_channel.push(task.get());
         std::cout << "before add to record" << std::endl;
-        auto x = co_await task->m_prom->acquire();
+        auto x = co_await task->m_prom.acquire();
         std::cout << "x.wal_offset = " << x.m_wal_offset << std::endl;
         std::cout << "x.size = " << x.m_size << std::endl;
         co_return record_pos{x.m_wal_offset, x.m_size};
@@ -463,15 +460,12 @@ class sivir : public std::enable_shared_from_this<sivir> {
     co_context::task<> get_record(uint64_t wal_offset, uint64_t size, std::string *value) {
         // record是从[wal_offset, wal_offset + size)
         // 返回数据是[wal_offset + 8, wal_offset + size)
-        auto task = std::make_shared<read_task>();
-        task->m_value = value;
-        task->m_wal_offset = wal_offset;
-        task->m_len = size;
-        task->m_prom = std::make_shared<co_context::channel<read_result>>();
-        task->m_ctx = &co_context::this_io_context();
+        auto channel = std::make_unique<co_context::channel<read_result>>();
+        auto task = std::make_unique<read_task>(wal_offset, size, value, *channel,
+                                                co_context::this_io_context());
         // co_await m_channel.release(task);
-        m_channel.push(task);
-        auto x = co_await task->m_prom->acquire();
+        m_channel.push(task.get());
+        auto x = co_await task->m_prom.acquire();
         std::cout << "get_record!!!" << std::endl;
         co_return;
     }
@@ -499,28 +493,26 @@ class sivir : public std::enable_shared_from_this<sivir> {
     std::thread m_compactor;
     write_window m_window;
     // 从channel中获取得到的io任务
-    std::vector<std::variant<std::shared_ptr<write_task>, std::shared_ptr<read_task>>>
-        m_pending_io_tasks;
+    std::vector<std::variant<write_task *, read_task *>> m_pending_io_tasks;
     // key是cursor，value是对应的任务
     // 当commit index超过cursor时，说明对应的任务已经完成
     // 可以给inflight_write_task的observer发送响应信息了
-    std::map<uint64_t, std::shared_ptr<write_task>> m_inflight_write_tasks;
+    std::map<uint64_t, write_task *> m_inflight_write_tasks;
 
     // key是read_task的编号
-    std::map<uint32_t, std::shared_ptr<read_task>> m_inflight_read_tasks;
+    std::map<uint32_t, read_task *> m_inflight_read_tasks;
     // key是这个buf的wal_offset
     // [key, key + align] 正在inflight
     std::set<uint64_t> m_barrier;
-    std::shared_ptr<co_context::io_context> m_ctx;
+    std::unique_ptr<co_context::io_context> m_ctx;
 
     // 这些是阻塞的
     // buf的wal_offset
     // std::map<uint64_t, std::pair<context, io_uring_sqe>> m_blocked;
 
     wal m_wal;
-    std::shared_ptr<aligned_buf_writer> m_buf_writer;
+    std::unique_ptr<aligned_buf_writer> m_buf_writer;
     std::vector<io_uring_sqe> m_resubmit_sqes;
     // std::mutex m_mtx;
-    std::queue<std::variant<std::shared_ptr<write_task>, std::shared_ptr<read_task>>> m_channel;
-    // co_context::channel<std::variant<write_task, read_task>, 1024> m_channel;
+    std::queue<std::variant<write_task *, read_task *>> m_channel;
 };

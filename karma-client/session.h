@@ -18,10 +18,10 @@ class session {
         : m_connection(std::move(connection)) {
         co_context::co_spawn(loop());
     }
-    co_context::task<void> write(std::shared_ptr<task> task) {
-        auto f = task->gen_frame();
-        m_inflight_requests[f->m_seq] = task;
-        auto result = co_await m_connection->write_frame(f);
+    co_context::task<void> write(task& task_) {
+        auto f = task_.gen_frame();
+        m_inflight_requests[f->m_seq] = &task_;
+        auto result = co_await m_connection->write_frame(*f);
         if (result.has_value()) {
             std::cout << "result: " << result.value() << std::endl;
         }
@@ -36,20 +36,20 @@ class session {
                 auto seq = f->m_seq;
                 auto task = m_inflight_requests[seq];
                 if (f->m_operation_code == karma_rpc::OperationCode_ECHO) {
-                    auto s = std::dynamic_pointer_cast<echo_request>(task);
-                    co_context::co_spawn(s->callback(f));
+                    auto s = (echo_request&)(*task);
+                    co_context::co_spawn(s.callback(*f));
                 } else if (f->m_operation_code == karma_rpc::OperationCode_READ_TASK) {
-                    auto s = std::dynamic_pointer_cast<read_request>(task);
-                    co_context::co_spawn(s->callback(f));
+                    auto s = (read_request&)(*task);
+                    co_context::co_spawn(s.callback(*f));
                 } else if (f->m_operation_code == karma_rpc::OperationCode_WRITE_TASK) {
-                    auto s = std::dynamic_pointer_cast<write_request>(task);
+                    auto s = (write_request&)(*task);
                     // co_context::co_spawn(s->callback(f));
-                    co_await s->callback(f);
+                    co_await s.callback(*f);
                 }
             }
         }
     };
     std::unique_ptr<transport::connection> m_connection;
-    std::unordered_map<uint32_t, std::shared_ptr<task>> m_inflight_requests;
+    std::unordered_map<uint32_t, task*> m_inflight_requests;
 };
 }  // namespace client

@@ -42,21 +42,21 @@ class segment_file {
     }
     uint32_t cal_crc32(sslice &slice) { return 0; }
     uint32_t cal_length_type(uint32_t size, uint8_t type) { return size << 8 | type; }
-    uint64_t append_record(std::shared_ptr<aligned_buf_writer> writer, sslice slice) {
+    uint64_t append_record(aligned_buf_writer &writer, sslice slice) {
         // auto crc32 = cal_crc32(slice);
         uint32_t crc32 = crc32c::Value(slice.data(), slice.size());
         uint32_t length_type = cal_length_type(slice.size(), 0);
         int len = slice.size();
         // std::cout << "crc32 = " << crc32 << std::endl;
         // std::cout << "length_type = " << length_type << std::endl;
-        writer->write_u32(crc32);
-        writer->write_u32(length_type);
-        writer->write(slice);
+        writer.write_u32(crc32);
+        writer.write_u32(length_type);
+        writer.write(slice);
         m_written += 4 + 4 + len;
-        assert(m_wal_offset + m_written == writer->cursor());
+        assert(m_wal_offset + m_written == writer.cursor());
         return m_written + m_wal_offset;
     };
-    void append_footer(std::shared_ptr<aligned_buf_writer> writer) {
+    void append_footer(aligned_buf_writer &writer) {
         if (m_size - m_written < 8) {
             // 直接全填0
             // 直接略过了
@@ -65,7 +65,7 @@ class segment_file {
             // assert(m_wal_offset + m_written == writer->cursor());
             uint64_t len = m_size - m_written;
             sslice s(std::string(len, '0'));
-            writer->write(s);
+            writer.write(s);
             m_written += len;
             return;
         }
@@ -75,11 +75,11 @@ class segment_file {
         sslice s(std::string(padding_length, '0'));
         // auto crc32 = cal_crc32(sslice(padding_length))
         auto length_type = cal_length_type(padding_length, 1);
-        writer->write_u32(0);
-        writer->write_u32(length_type);
-        writer->write(s);
+        writer.write_u32(0);
+        writer.write_u32(length_type);
+        writer.write(s);
         m_written = m_size;
-        assert(m_wal_offset + m_written == writer->cursor());
+        assert(m_wal_offset + m_written == writer.cursor());
     }
     bool open_and_create() {
         std::cout << "m_path = " << m_path << std::endl;
