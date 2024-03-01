@@ -1,45 +1,111 @@
-// #include "client.h"
-// #include "karma-client/header.h"
+#include "client.h"
+co_context::task<std::unique_ptr<client::echo_reply>> client::client::echo(raft::server_id start,
+                                                                           raft::server_id target,
+                                                                           std::string msg) {
+    auto prom = std::make_unique<co_context::channel<std::unique_ptr<echo_reply>>>();
+    auto req = std::make_unique<echo_request>(start, 0, msg);
+    req->set_prom(prom.get());
+    auto session = co_await m_session_manager->get_composite_session(m_members[target].first,
+                                                                     m_members[target].second);
 
-// // co_context::task<ping_pong_reply>  client::client::ping_pong() {
-// //     // ping_pong_request 
-// // }
+    co_await session.value().get().request(*req);
+    auto reply = co_await prom->acquire();
+    co_return reply;
+}
 
-// // run in any thread
-// co_context::task<void> client::client::append_entries(raft::server_address start, raft::server_address target, const raft::append_request& append_request) {
-//     append_entries_task task {.start = start, .target = target, .append_request = append_request};
-//     co_await m_client_task_chan.release(task);
-// }
-// co_context::task<void> client::client::append_entries_reply(raft::server_address start, raft::server_address target, const raft::append_reply& reply) {
-//     append_entries_reply_task task {.start = start, .target = target, .reply = reply};
-//     co_await m_client_task_chan.release(task);
-// }
+co_context::task<> client::client::append_entry(raft::server_id start, raft::server_id target,
+                                                const raft::append_request& append_request) {
+    auto req = std::make_unique<append_entry_request>(start, 0, append_request);
+    auto session = co_await m_session_manager->get_composite_session(m_members[target].first,
+                                                                     m_members[target].second);
+    if (session.has_value()) {
+        co_await session.value().get().request(*req);
+    }
+}
 
-// // in the local thread
-// co_context::task<void> client::client::local_append_entries(raft::server_address start, raft::server_address target, const raft::append_request& append_request) {
-//     auto composite_session = m_session_manager->get_composite_session(target.host, target.id);
-//     append_entry_request_header req;
-//     req.m_request = append_request;
-//     req.m_group_id = 0;
-//     req.m_start = start.id;
-//     // co_await composite_session->request_to_one(req);
-// }
+co_context::task<> client::client::append_entry_reply_(raft::server_id start,
+                                                       raft::server_id target,
+                                                       const raft::append_reply& reply) {
+    auto req = std::make_unique<append_entry_reply>(start, 0, reply);
+    auto session = co_await m_session_manager->get_composite_session(m_members[target].first,
+                                                                     m_members[target].second);
+    if (session.has_value()) {
+        co_await session.value().get().request(*req);
+    }
+}
 
-// co_context::task<void> client::client::local_append_entries_reply(raft::server_address start, raft::server_address target, const raft::append_reply& reply) {
-//     auto composite_session = m_session_manager->get_composite_session(target.host, target.id);
-//     // append_entry_reply req;
-//     // req.m_reply = reply;
-//     // req.m_group_id = 0;
-//     // req.m_start = start.id;
-//     // co_await composite_session->request_to_one(req);
-// }
+co_context::task<> client::client::vote_request_(raft::server_id start, raft::server_id target,
+                                                 const raft::vote_request& vote_request_) {
+    auto req = std::make_unique<vote_request>(start, 0, vote_request_);
+    auto session = co_await m_session_manager->get_composite_session(m_members[target].first,
+                                                                     m_members[target].second);
+    if (session.has_value()) {
+        co_await session.value().get().request(*req);
+    }
+}
 
-// co_context::task<void> client::client::local_ping_pong(ping_pong_task& task) {
-//     auto composite_session = m_session_manager->get_composite_session(task.target.host, task.target.id);
-//     // ping_pong_request_header req;
-//     // 构建出header，payload
-//     ping_pong_request_header h{.m_group_id = 0, .m_start = task.start.id, .m_str = "Ping!"};
-    
-//     // composite_session->request_to_one(h, nullptr, task.m_channel);
+co_context::task<> client::client::vote_reply_(raft::server_id start, raft::server_id target,
+                                               const raft::vote_reply& vote_reply_) {
+    auto req = std::make_unique<vote_reply>(start, 0, vote_reply_);
+    auto session = co_await m_session_manager->get_composite_session(m_members[target].first,
+                                                                     m_members[target].second);
+    if (session.has_value()) {
+        co_await session.value().get().request(*req);
+    }
+}
 
-// }
+co_context::task<> client::client::time_out(raft::server_id start, raft::server_id target,
+                                            const raft::timeout_now& timeout_now_) {
+    auto req = std::make_unique<time_out_request>(start, 0, timeout_now_);
+    auto session = co_await m_session_manager->get_composite_session(m_members[target].first,
+                                                                     m_members[target].second);
+    if (session.has_value()) {
+        co_await session.value().get().request(*req);
+    }
+}
+
+co_context::task<> client::client::read_quorum(raft::server_id start, raft::server_id target,
+                                               const raft::read_quorum& read_quorum) {
+    auto req = std::make_unique<read_quorum_request>(start, 0, read_quorum);
+    auto session = co_await m_session_manager->get_composite_session(m_members[target].first,
+                                                                     m_members[target].second);
+    if (session.has_value()) {
+        co_await session.value().get().request(*req);
+    }
+}
+
+co_context::task<> client::client::read_quorum_reply_(
+    raft::server_id start, raft::server_id target,
+    const raft::read_quorum_reply& read_quorum_reply_) {
+    auto req = std::make_unique<read_quorum_reply>(start, 0, read_quorum_reply_);
+    auto session = co_await m_session_manager->get_composite_session(m_members[target].first,
+                                                                     m_members[target].second);
+    if (session.has_value()) {
+        co_await session.value().get().request(*req);
+    }
+}
+
+// for outer
+co_context::task<std::unique_ptr<client::read_reply>> client::client::cli_read(
+    raft::server_id group_id, raft::server_id target, std::string key) {
+    auto prom = std::make_unique<co_context::channel<std::unique_ptr<read_reply>>>();
+    auto req = std::make_unique<read_request>(group_id, key);
+    req->set_prom(prom.get());
+    auto session = co_await m_session_manager->get_composite_session(m_members[target].first,
+                                                                     m_members[target].second);
+    co_await session.value().get().request(*req);
+    auto reply = co_await prom->acquire();
+    co_return reply;
+}
+
+co_context::task<std::unique_ptr<client::write_reply>> client::client::cli_write(
+    raft::group_id group_id, raft::server_id target, std::string key, std::string value) {
+    auto prom = std::make_unique<co_context::channel<std::unique_ptr<write_reply>>>();
+    auto req = std::make_unique<write_request>(group_id, key, value);
+    req->set_prom(prom.get());
+    auto session = co_await m_session_manager->get_composite_session(m_members[target].first,
+                                                                     m_members[target].second);
+    co_await session.value().get().request(*req);
+    auto reply = co_await prom->acquire();
+    co_return reply;
+}
