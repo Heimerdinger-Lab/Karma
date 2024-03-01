@@ -29,4 +29,3 @@ target_link_libraries(${KARMA} ${CO_CONTEXT} ${KARMA_CLIENT} ${KARMA_TRANSPORT} 
 # add_executable(${KARMA} tool/async.cc)
 # target_include_directories(${KARMA} PRIVATE . ${CO_CONTEXT_DIR} ${CMAKE_SOURCE_DIR})
 # target_link_libraries(${KARMA} ${CO_CONTEXT}) 
-

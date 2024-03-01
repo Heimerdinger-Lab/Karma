@@ -13,8 +13,7 @@ class aligned_buf_writer {
    public:
     aligned_buf_writer(uint64_t cursor) : m_cursor(cursor) {
         uint64_t from = cursor / aligned_buf_alignment * aligned_buf_alignment;
-        m_current = std::make_shared<aligned_buf>(from);
-        m_full = std::make_shared<std::vector<std::shared_ptr<aligned_buf>>>();
+        m_current = std::make_unique<aligned_buf>(from);
     };
     ~aligned_buf_writer() { std::cout << "~abf" << std::endl; }
     // bool buffering() {
@@ -37,10 +36,10 @@ class aligned_buf_writer {
                 data.remove_prefix(r);
                 pos += r;
                 // 写满了
-                m_full->push_back(m_current);
+                m_full.push_back(std::move(m_current));
                 std::cout << "new: " << m_current->wal_offset() + m_current->limit() << std::endl;
                 m_current =
-                    std::make_shared<aligned_buf>(m_current->wal_offset() + m_current->limit());
+                    std::make_unique<aligned_buf>(m_current->wal_offset() + m_current->limit());
             }
         };
         std::cout << "len = " << len << std::endl;
@@ -71,7 +70,7 @@ class aligned_buf_writer {
 
    public:
     uint64_t m_cursor;
-    std::shared_ptr<std::vector<std::shared_ptr<aligned_buf>>> m_full;
+    std::vector<std::shared_ptr<aligned_buf>> m_full;
     std::shared_ptr<aligned_buf> m_current;
     bool m_dirty = true;
 };

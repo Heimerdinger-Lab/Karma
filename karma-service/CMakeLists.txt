@@ -8,5 +8,5 @@ message(STATUS "SERVICE_SRCS: ${SERVICE_SRCS}")
 add_library(${KARMA_SERVICE} ${SERVICE_HEADERS} ${SERVICE_SRCS})
 target_include_directories(${KARMA_SERVICE} PRIVATE . ${CMAKE_SOURCE_DIR})
 
-target_link_libraries(${KARMA_SERVICE})
+target_link_libraries(${KARMA_SERVICE} ${CO_CONTEXT} Boost::log)
 

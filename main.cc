@@ -1,4 +1,3 @@
-
 #include <boost/log/trivial.hpp>
 #include <co_context/io_context.hpp>
 
@@ -34,5 +33,5 @@ int main(int argc, char *argv[]) {
     }());
     ctx.start();
     ctx.join();
-
+    return 0;
 }

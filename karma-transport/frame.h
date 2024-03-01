@@ -16,8 +16,8 @@ class frame {
     karma_rpc::OperationCode m_operation_code = karma_rpc::OperationCode::OperationCode_UNKNOW;
     uint8_t m_flag = 0;
     uint32_t m_seq = 0;
-    std::string m_header = "";
-    std::string m_data = "";
+    std::string m_header;
+    std::string m_data;
 
    public:
     static const uint8_t MAGIC_CODE = 123;
@@ -35,7 +35,7 @@ class frame {
     void set_header(std::string header);
     void set_payload(std::string payload);
     std::string encode();
-    static std::shared_ptr<frame> parse(std::span<char> src);
+    static std::unique_ptr<frame> parse(std::span<char> src);
     static void check(std::span<char> src);
 };
 }  // namespace transport
