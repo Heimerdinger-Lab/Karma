@@ -1,13 +1,17 @@
 #include "frame.h"
 
+#include <boost/log/trivial.hpp>
 #include <memory>
-std::atomic_int64_t transport::g_frame_id = 0;
+#include <optional>
+
+#include "karma-util/crc32c.h"
+uint32_t transport::g_frame_id = 0;
 transport::frame::frame(karma_rpc::OperationCode code) : m_operation_code(code) {
     m_seq = g_frame_id++;
 }
 
 size_t transport::frame::size() {
-    return FIXED_HEADER_LENGTH + m_header.size() + m_data.size() + 4;
+    return FIXED_HEADER_LENGTH + m_header.size() + m_data.size() + CRC32_LENGTH;
 }
 
 void transport::frame::flag_response() { m_flag = 1; }
@@ -18,12 +22,11 @@ bool transport::frame::is_response() { return m_flag == 1; }
 
 bool transport::frame::is_request() { return m_flag == 0; }
 
-void transport::frame::set_header(std::string header) { m_header = header; }
+void transport::frame::set_header(std::string &header) { m_header = header; }
 
-void transport::frame::set_payload(std::string payload) { m_data = payload; }
+void transport::frame::set_payload(std::string &payload) { m_data = payload; }
 
-std::string transport::frame::encode() {
-    /*
+/*
 4 + 1 + 2 + 1 + 4 + 4 + xx + xx
 - frame_length: u32
 - magic_code: u8
@@ -34,103 +37,89 @@ std::string transport::frame::encode() {
 - Header
 - Payload
 - crc32 of payload: u32
-    */
+*/
+std::string transport::frame::encode() {
     std::string encode_str;
-    uint32_t extend_header_length = m_header.length();
+    uint32_t header_length = m_header.length();
     uint32_t payload_length = m_data.length();
-    // FIXED HEADER + EXTEND HEADER + PAYLOAD + PAYLOAD CRC32
-    uint32_t frame_length = FIXED_HEADER_LENGTH + extend_header_length + payload_length + 4;
-    std::cout << "encode frame length = " << frame_length
-              << ", header_length: " << extend_header_length << ", payload: " << payload_length
-              << std::endl;
+    uint32_t frame_length = FIXED_HEADER_LENGTH + header_length + payload_length + CRC32_LENGTH;
     encode_str.reserve(frame_length);
-    encode_str.insert(encode_str.end(), (char *)&frame_length, (char *)&frame_length + 4);
+    encode_str.append((char *)&frame_length, (char *)&frame_length + 4);
     uint8_t code = MAGIC_CODE;
-    encode_str.insert(encode_str.end(), (char *)&code, (char *)&code + 1);
-    encode_str.insert(encode_str.end(), (char *)&m_operation_code, (char *)&m_operation_code + 2);
-    encode_str.insert(encode_str.end(), (char *)&m_flag, (char *)&m_flag + 1);
-    std::cout << "seq = " << m_seq << std::endl;
-    encode_str.insert(encode_str.end(), (char *)&m_seq, (char *)&m_seq + 4);
-    encode_str.insert(encode_str.end(), (char *)&extend_header_length,
-                      (char *)&extend_header_length + 4);
-    encode_str.insert(encode_str.end(), m_header.begin(), m_header.end());
-    encode_str.insert(encode_str.end(), m_data.begin(), m_data.end());
-    uint32_t crc32 = TEMP_CRC32;
-    encode_str.insert(encode_str.end(), (char *)&crc32, (char *)&crc32 + 4);
+    encode_str.append((char *)&code, (char *)&code + 1);
+    encode_str.append((char *)&m_operation_code, (char *)&m_operation_code + 2);
+    encode_str.append((char *)&m_flag, (char *)&m_flag + 1);
+    encode_str.append((char *)&m_seq, (char *)&m_seq + 4);
+    encode_str.append((char *)&header_length, (char *)&header_length + 4);
+    encode_str.append(m_header.begin(), m_header.end());
+    encode_str.append(m_data.begin(), m_data.end());
+    auto header_crc32 = crc32c::Value(m_header.data(), m_header.size());
+    auto total_crc32 = crc32c::Extend(header_crc32, m_data.data(), m_data.size());
+    encode_str.append((char *)&total_crc32, (char *)&total_crc32 + 4);
+    // BOOST_LOG_TRIVIAL(debug) << "crc32: " << total_crc32;
     return encode_str;
 };
 
-std::unique_ptr<transport::frame> transport::frame::parse(std::span<char> src) {
-    // frame ret{};
+std::optional<std::unique_ptr<transport::frame>> transport::frame::parse(std::span<char> src) {
+    // assert(check(src));
+    if (src.size() < FIXED_HEADER_LENGTH + CRC32_LENGTH) {
+        return std::nullopt;
+    }
+    uint32_t check_offset = 0;
+    uint32_t check_frame_size = *((uint32_t *)(src.data() + check_offset));
+    check_offset += 4;
+    if (check_frame_size > MAX_FRAME_SIZE) {
+        throw std::runtime_error("Bad Frame: The decoded frame size is larger than the limit");
+        return std::nullopt;
+    }
+    if (src.size() < check_frame_size) {
+        return std::nullopt;
+    }
+    // Get an frame, start to decode it!
     auto ret = std::make_unique<transport::frame>();
     uint32_t offset = 0;
     uint32_t frame_size = *((uint32_t *)(src.data() + offset));
-    std::cout << "frame_size: " << frame_size << std::endl;
     offset += 4;
-    // skip the magic code
+    uint8_t code = *((uint8_t *)(src.data() + offset));
+    // assert(code == MAGIC_CODE);
+    if (code != MAGIC_CODE) {
+        throw std::runtime_error("Bad Frame: Wrong magic code");
+        return std::nullopt;
+    }
     offset += 1;
     uint16_t op_code = *((uint16_t *)(src.data() + offset));
-    std::cout << "op = " << op_code << std::endl;
     ret->m_operation_code = karma_rpc::OperationCode(op_code);
     offset += 2;
-    std::cout << "offset = " << offset << std::endl;
-    uint8_t xxx = *((uint8_t *)(src.data() + offset));
-    std::cout << "flag = " << ((int)xxx + 0) << std::endl;
-    ret->m_flag = xxx;
+    uint8_t flag = *((uint8_t *)(src.data() + offset));
+    ret->m_flag = flag;
     offset += 1;
     uint32_t seq = *((uint32_t *)(src.data() + offset));
-    std::cout << "seq = " << seq << std::endl;
     ret->m_seq = seq;
     offset += 4;
     uint32_t header_length = *((uint32_t *)(src.data() + offset));
+
+    if (header_length > (frame_size - FIXED_HEADER_LENGTH - 4)) {
+        throw std::runtime_error("Bad Frame: Wrong header length");
+        return std::nullopt;
+    }
     offset += 4;
-    // ret->m_header.reserve(header_length);
-    ret->m_header.insert(ret->m_header.end(), src.data() + offset,
-                         src.data() + offset + header_length);
-    // memcpy(ret.m_header.data(), src.data() + offset, header_length);
+    ret->m_header.reserve(header_length);
+    ret->m_header.append(src.data() + offset, src.data() + offset + header_length);
     offset += header_length;
-    std::cout << "offset = " << offset << ", header_length = " << header_length << std::endl;
+    if (frame_size - offset - 4 < 0) {
+        throw std::runtime_error("Bad Frame: Wrong data length");
+        return std::nullopt;
+    }
     uint32_t body_length = frame_size - offset - 4;
-    std::cout << "body_length = " << body_length << std::endl;
-    // ret->m_data.reserve(body_length);
-    // memcpy(ret.m_data.data(), src.data() + offset, body_length);
-    ret->m_data.insert(ret->m_data.end(), src.data() + offset, src.data() + offset + body_length);
-    // skip the crc32
-    return ret;
-};
-void transport::frame::check(std::span<char> src) {
-    std::cout << "span size = " << src.size() << std::endl;
-    if (src.size() < 4) {
-        throw frame_error::incomplete();
-    }
-    uint32_t offset = 0;
-    uint32_t frame_size = *((uint32_t *)(src.data() + offset));
-    offset += 4;
-    if (frame_size > src.size()) {
-        throw frame_error::incomplete();
-    }
-    uint8_t magic = *((uint8_t *)(src.data() + offset));
-    offset += 1;
-    if (magic != MAGIC_CODE) {
-        throw frame_error::bad_frame();
-    }
-    // pass the op_code
-    offset += 2;
-    // pass the flag
-    offset += 1;
-    // pass the seq
-    offset += 4;
-    // header_length
-    uint32_t header_length = *((uint32_t *)(src.data() + offset));
-    offset += 4 + header_length;
-    uint32_t body_length = frame_size - offset - 4;
-    if (body_length < 0) {
-        throw frame_error::bad_frame();
-    }
-    // check crc32
+    ret->m_data.reserve(body_length);
+    ret->m_data.append(src.data() + offset, src.data() + offset + body_length);
     offset += body_length;
     uint32_t crc32 = *((uint32_t *)(src.data() + offset));
-    if (crc32 != TEMP_CRC32) {
-        throw frame_error::bad_frame();
+    auto header_crc32 = crc32c::Value(ret->m_header.data(), ret->m_header.size());
+    auto total_crc32 = crc32c::Extend(header_crc32, ret->m_data.data(), ret->m_data.size());
+    if (total_crc32 != crc32) {
+        throw std::runtime_error("Bad Frame: Wrong crc32");
+        return std::nullopt;
     }
+    return ret;
 };
