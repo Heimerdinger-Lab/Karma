@@ -1,7 +1,6 @@
 #pragma once
 #include "co_context/co/channel.hpp"
 #include "co_context/task.hpp"
-#include "karma-client/error.h"
 
 // #include "karma-raft/raft.hh"
 // #include "karma-raft/common.h"
@@ -9,6 +8,7 @@
 #include <flatbuffers/buffer.h>
 
 #include <cstdint>
+#include <iostream>
 #include <memory>
 #include <variant>
 

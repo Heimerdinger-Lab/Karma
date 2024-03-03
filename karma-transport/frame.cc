@@ -105,6 +105,7 @@ std::optional<std::unique_ptr<transport::frame>> transport::frame::parse(std::sp
     offset += 4;
     ret->m_header.reserve(header_length);
     ret->m_header.append(src.data() + offset, src.data() + offset + header_length);
+
     offset += header_length;
     if (frame_size - offset - 4 < 0) {
         throw std::runtime_error("Bad Frame: Wrong data length");

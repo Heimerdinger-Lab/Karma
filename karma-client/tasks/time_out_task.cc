@@ -1,9 +1,11 @@
 #include "time_out_task.h"
+
+#include <boost/log/trivial.hpp>
 std::unique_ptr<client::time_out_request> client::time_out_request::from_frame(
     transport::frame& frame) {
-    std::string buffer_header = frame.m_header;
-    auto header = flatbuffers::GetRoot<karma_rpc::TimeOut>(buffer_header.data());
+    auto header = flatbuffers::GetRoot<karma_rpc::TimeOut>(frame.m_header.data());
     raft::timeout_now request{.current_term = static_cast<raft::term_t>(header->current_term())};
+    BOOST_LOG_TRIVIAL(trace) << "Generate a time out request from frame";
     return std::make_unique<time_out_request>(header->from_id(), header->group_id(), request);
 };
 

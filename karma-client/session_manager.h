@@ -11,6 +11,7 @@ class session_manager {
     get_composite_session(std::string host, uint16_t port);
 
    private:
-    std::map<std::string, std::unique_ptr<composite_session>> m_sessions;
+    void clean_dead_session();
+    std::map<std::string, std::shared_ptr<composite_session>> m_sessions;
 };
 }  // namespace client

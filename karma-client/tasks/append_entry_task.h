@@ -14,7 +14,10 @@ class append_entry_reply : public task {
     append_entry_reply(uint64_t m_from_id, uint64_t m_group_id, raft::append_reply m_reply)
         : m_from_id(m_from_id), m_group_id(m_group_id), m_reply(m_reply) {}
     std::unique_ptr<transport::frame> gen_frame() override;
-    co_context::task<void> callback(transport::frame &reply_frame) override {}
+    co_context::task<void> callback(transport::frame &reply_frame) override {
+        // one way rpc do not need to implement it.
+        co_return;
+    }
     static std::unique_ptr<append_entry_reply> from_frame(transport::frame &frame);
     uint64_t from_id() { return m_from_id; }
     raft::append_reply reply() { return m_reply; }
@@ -30,7 +33,10 @@ class append_entry_request : public task {
         : m_from_id(m_from_id), m_group_id(m_group_id), m_request(std::move(m_request)) {}
     std::unique_ptr<transport::frame> gen_frame() override;
     static std::unique_ptr<append_entry_request> from_frame(transport::frame &frame);
-    co_context::task<void> callback(transport::frame &reply_frame) override {}
+    co_context::task<void> callback(transport::frame &reply_frame) override {
+        // one way rpc do not need to implement it.
+        co_return;
+    }
     uint64_t from_id() { return m_from_id; }
     raft::append_request request() { return m_request; }
 

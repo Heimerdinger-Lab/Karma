@@ -11,7 +11,6 @@ transport::connection::connection(std::unique_ptr<co_context::socket> socket, st
     : m_socket(std::move(socket)), m_inet_address(addr, port), m_valid(true) {
     co_context::co_spawn(loop());
 }
-
 co_context::task<std::optional<std::unique_ptr<transport::frame>>>
 transport::connection::read_frame() noexcept {
     if (!valid()) {
@@ -23,8 +22,6 @@ transport::connection::read_frame() noexcept {
             auto frame_opt = frame::parse(std::span<char>(m_buffer));
             if (frame_opt.has_value()) {
                 auto frame = std::move(frame_opt.value());
-                BOOST_LOG_TRIVIAL(trace)
-                    << "Receive a frame" << frame->m_operation_code << std::endl;
                 m_buffer.erase(0, frame->size());
                 co_return std::move(frame);
             }
@@ -33,14 +30,15 @@ transport::connection::read_frame() noexcept {
             auto read_size = co_await m_socket->recv(buf);
             if (read_size <= 0) {
                 BOOST_LOG_TRIVIAL(error) << "Something wrong with this connection" << std::endl;
-                throw std::runtime_error("Connection reset");
+                throw std::runtime_error("The return value of receive() <= 0");
             }
             m_buffer.insert(m_buffer.end(), buf, buf + read_size);
         };
-    } catch (std::exception e) {
-        BOOST_LOG_TRIVIAL(error) << "Read fail: " << e.what() << ", connection will be reset";
+    } catch (std::runtime_error e) {
+        BOOST_LOG_TRIVIAL(error) << "Runtime error reason: " << e.what()
+                                 << ", connection will be reset";
     }
-    // 到这里说明read出错了，需要关闭socket
+
     m_valid = false;
     co_return std::nullopt;
 };
@@ -69,6 +67,7 @@ co_context::task<bool> transport::connection::write(frame& f) {
     co_return true;
 };
 co_context::task<void> transport::connection::loop() {
+    BOOST_LOG_TRIVIAL(trace) << "Connection write loop started";
     while (m_valid) {
         auto task = co_await m_write_task_chan.acquire();
         if (!m_valid) {

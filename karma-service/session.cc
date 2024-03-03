@@ -1,92 +1,63 @@
 #include "session.h"
+
+#include "co_context/io_context.hpp"
 co_context::task<void> service::session::read_loop(
     co_context::channel<std::unique_ptr<transport::frame>, 1024>& channel,
     transport::connection& conn) {
+    BOOST_LOG_TRIVIAL(trace) << "Session read loop start";
     while (true) {
-        std::cout << "????" << std::endl;
-        std::unique_ptr<transport::frame> f;
-        try {
-            f = co_await conn.read_frame();
-        } catch (transport::frame_error e) {
-            std::cout << "frame error" << std::endl;
+        auto frame_opt = co_await conn.read_frame();
+        if (!frame_opt.has_value()) {
+            BOOST_LOG_TRIVIAL(error) << "Session will be reset...";
+            co_return;
         }
-        // printf("f.header = %p, count = %ld\n", f->m_header.data(), f.use_count());
-        // std::cout << "!!!!: " << f->m_header.size() <<  std::endl;
-        if (f->is_request()) {
-            if (f->m_operation_code == karma_rpc::OperationCode_ECHO) {
-                // co_context::co_spawn([f, channel]() -> co_context::task<> {
-                //     auto echo_req = client::echo_request::from_frame(f);
-                //     std::cout << "echo_req.msg: " << echo_req->msg() << std::endl;
-                //     client::echo_reply reply(0, 0, "reply from tianpingan");
-                //     co_await channel->release(reply.gen_frame());
-                //     co_return;
-                // }());
-                {
-                    auto echo_req = client::echo_request::from_frame(*f);
-                    std::cout << "echo_req.msg: " << echo_req->msg() << std::endl;
-                    client::echo_reply reply(0, 0,
-                                             "reply from tianpingan of (" + echo_req->msg() + ").");
-                    co_await channel.release(reply.gen_frame());
-                    // co_return;
-                }
-            } else if (f->m_operation_code == karma_rpc::OperationCode_VOTE) {
-                std::cout << "vote request" << std::endl;
-                auto vote_request = client::vote_request::from_frame(*f);
+        BOOST_LOG_TRIVIAL(trace) << "Read a frame from this session";
+        auto frame = std::move(frame_opt.value());
+        if (frame->is_request()) {
+            if (frame->m_operation_code == karma_rpc::OperationCode_ECHO) {
+                BOOST_LOG_TRIVIAL(trace) << "Receive an client echo request";
+                auto echo_req = client::cli_echo_request::from_frame(*frame);
+                client::cli_echo_reply reply(
+                    0, 0, "Reply from tianpingan, the request msg is :" + echo_req->msg() + ".");
+                auto reply_frame = reply.gen_frame();
+                reply_frame->m_seq = frame->m_seq;
+                co_await channel.release(std::move(reply_frame));
+
+            } else if (frame->m_operation_code == karma_rpc::OperationCode_VOTE) {
+                BOOST_LOG_TRIVIAL(trace) << "Receive an vote request";
+                auto vote_request = client::vote_request::from_frame(*frame);
                 m_raft.receive(vote_request->from_id(), vote_request->request());
-            } else if (f->m_operation_code == karma_rpc::OperationCode_HEARTBEAT) {
-                std::cout << "heartbeat" << std::endl;
-                // auto vote_request = client::vote_request::from_frame(f);
-                // co_await m_raft.receive(vote_request->from_id(),
-                // vote_request->request());
-            } else if (f->m_operation_code == karma_rpc::OperationCode_APPEND_ENTRY) {
-                std::cout << "append entry" << std::endl;
-                auto append_request = client::append_entry_request::from_frame(*f);
+            } else if (frame->m_operation_code == karma_rpc::OperationCode_HEARTBEAT) {
+                BOOST_LOG_TRIVIAL(trace) << "Receive a heartbeat";
+            } else if (frame->m_operation_code == karma_rpc::OperationCode_APPEND_ENTRY) {
+                BOOST_LOG_TRIVIAL(trace) << "Receive an append entry request";
+                auto append_request = client::append_entry_request::from_frame(*frame);
                 m_raft.receive(append_request->from_id(), append_request->request());
-            } else if (f->m_operation_code == karma_rpc::OperationCode_READ_QUORUM) {
-                std::cout << "read quorum" << std::endl;
-                auto read_quorum_request = client::read_quorum_request::from_frame(*f);
+            } else if (frame->m_operation_code == karma_rpc::OperationCode_READ_QUORUM) {
+                BOOST_LOG_TRIVIAL(trace) << "Receive an read quorum";
+                auto read_quorum_request = client::read_quorum_request::from_frame(*frame);
                 m_raft.receive(read_quorum_request->from_id(), read_quorum_request->request());
-            } else if (f->m_operation_code == karma_rpc::OperationCode_READ_TASK) {
-                auto read_task = client::read_request::from_frame(*f);
-                std::cout << "read request!!!, key: " << read_task->key() << std::endl;
+            } else if (frame->m_operation_code == karma_rpc::OperationCode_READ_TASK) {
+                BOOST_LOG_TRIVIAL(trace) << "Receive an client read request";
+                auto read_task = client::cli_read_request::from_frame(*frame);
                 auto val = co_await m_raft.cli_read(read_task->key());
-                client::read_reply reply(true, val);
-                auto frame = std::move(reply.gen_frame());
-                frame->m_seq = f->m_seq;
+                client::cli_read_reply reply(true, val);
+                auto frame = reply.gen_frame();
+                frame->m_seq = frame->m_seq;
                 co_await channel.release(std::move(frame));
-            } else if (f->m_operation_code == karma_rpc::OperationCode_WRITE_TASK) {
-                auto write_task = client::write_request::from_frame(*f);
+            } else if (frame->m_operation_code == karma_rpc::OperationCode_WRITE_TASK) {
+                BOOST_LOG_TRIVIAL(trace) << "Receive an client write request";
+                auto write_task = client::cli_write_request::from_frame(*frame);
                 co_await m_raft.cli_write(write_task->key(), write_task->value());
-                client::write_reply reply(true);
-                auto frame = std::move(reply.gen_frame());
-                frame->m_seq = f->m_seq;
+                client::cli_write_reply reply(true);
+                auto frame = reply.gen_frame();
+                frame->m_seq = frame->m_seq;
                 co_await channel.release(std::move(frame));
             } else {
-                std::cout << "unknow task" << std::endl;
+                BOOST_LOG_TRIVIAL(error) << "Receive an unexpected request";
             }
         } else {
-            if (f->m_operation_code == karma_rpc::OperationCode_ECHO) {
-                std::cout << "echo reply" << std::endl;
-            } else if (f->m_operation_code == karma_rpc::OperationCode_VOTE) {
-                std::cout << "vote reply" << std::endl;
-                auto vote_reply = client::vote_reply::from_frame(*f);
-                m_raft.receive(vote_reply->from_id(), vote_reply->reply());
-            } else if (f->m_operation_code == karma_rpc::OperationCode_HEARTBEAT) {
-                std::cout << "heartbeat reply" << std::endl;
-                // auto vote_request = client::vote_request::from_frame(f);
-                // co_await m_raft.receive(vote_request->from_id(),
-                // vote_request->request());
-            } else if (f->m_operation_code == karma_rpc::OperationCode_APPEND_ENTRY) {
-                std::cout << "append entry reply" << std::endl;
-                auto append_reply = client::append_entry_reply::from_frame(*f);
-                m_raft.receive(append_reply->from_id(), append_reply->reply());
-            } else if (f->m_operation_code == karma_rpc::OperationCode_READ_QUORUM) {
-                std::cout << "read quorum reply" << std::endl;
-                auto read_quorum_request = client::read_quorum_request::from_frame(*f);
-                m_raft.receive(read_quorum_request->from_id(), read_quorum_request->request());
-            } else {
-                std::cout << "unknow reply task" << std::endl;
-            }
+            BOOST_LOG_TRIVIAL(error) << "Receive an unexpected reply on server session";
         }
     }
 }
@@ -94,12 +65,10 @@ co_context::task<void> service::session::read_loop(
 co_context::task<void> service::session::write_loop(
     co_context::channel<std::unique_ptr<transport::frame>, 1024>& channel,
     transport::connection& conn) {
-    // response loop
+    BOOST_LOG_TRIVIAL(trace) << "Session write loop start";
     while (true) {
-        auto f = co_await channel.acquire();
-        std::cout << "to write a frame" << std::endl;
-        // co_context::co_spawn(conn_write(conn, f));
-        // co_await conn_write(conn, f);
+        auto f = std::move(co_await channel.acquire());
+        BOOST_LOG_TRIVIAL(trace) << "Session write loop got an write frame task";
         co_await conn.write_frame(*f);
     }
 }

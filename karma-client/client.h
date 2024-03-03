@@ -9,12 +9,12 @@
 #include "co_context/lazy_io.hpp"
 #include "karma-client/session_manager.h"
 #include "karma-client/tasks/append_entry_task.h"
-#include "karma-client/tasks/echo_task.h"
+#include "karma-client/tasks/cli_echo_task.h"
+#include "karma-client/tasks/cli_read_task.h"
+#include "karma-client/tasks/cli_write_task.h"
 #include "karma-client/tasks/read_quorum_task.h"
-#include "karma-client/tasks/read_task.h"
 #include "karma-client/tasks/time_out_task.h"
 #include "karma-client/tasks/vote_task.h"
-#include "karma-client/tasks/write_task.h"
 #include "karma-raft/raft.hh"
 
 namespace client {
@@ -31,28 +31,29 @@ class client {
         using namespace std::literals;
         co_await co_context::timeout(3s);
     }
-    co_context::task<std::unique_ptr<echo_reply>> echo(raft::server_id start,
-                                                       raft::server_id target, std::string msg);
-    co_context::task<> append_entry(raft::server_id start, raft::server_id target,
-                                    const raft::append_request& append_request);
-    co_context::task<> append_entry_reply_(raft::server_id start, raft::server_id target,
-                                           const raft::append_reply& reply);
-    co_context::task<> vote_request_(raft::server_id start, raft::server_id target,
-                                     const raft::vote_request& vote_request_);
-    co_context::task<> vote_reply_(raft::server_id start, raft::server_id target,
-                                   const raft::vote_reply& vote_reply_);
-    co_context::task<> time_out(raft::server_id start, raft::server_id target,
-                                const raft::timeout_now& timeout_now_);
-    co_context::task<> read_quorum(raft::server_id start, raft::server_id target,
-                                   const raft::read_quorum& read_quorum);
-    co_context::task<> read_quorum_reply_(raft::server_id start, raft::server_id target,
-                                          const raft::read_quorum_reply& read_quorum_reply_);
+    // one way rpc
+    co_context::task<bool> append_entry(raft::server_id start, raft::server_id target,
+                                        const raft::append_request& append_request);
+    co_context::task<bool> append_entry_reply_(raft::server_id start, raft::server_id target,
+                                               const raft::append_reply& reply);
+    co_context::task<bool> vote_request_(raft::server_id start, raft::server_id target,
+                                         const raft::vote_request& vote_request_);
+    co_context::task<bool> vote_reply_(raft::server_id start, raft::server_id target,
+                                       const raft::vote_reply& vote_reply_);
+    co_context::task<bool> time_out(raft::server_id start, raft::server_id target,
+                                    const raft::timeout_now& timeout_now_);
+    co_context::task<bool> read_quorum(raft::server_id start, raft::server_id target,
+                                       const raft::read_quorum& read_quorum);
+    co_context::task<bool> read_quorum_reply_(raft::server_id start, raft::server_id target,
+                                              const raft::read_quorum_reply& read_quorum_reply_);
+    // two way rpc
+    co_context::task<std::optional<std::unique_ptr<cli_echo_reply>>> cli_echo(
+        raft::server_id start, raft::server_id target, std::string msg);
 
-    co_context::task<std::unique_ptr<read_reply>> cli_read(raft::server_id group_id,
-                                                           raft::server_id target, std::string key);
-    co_context::task<std::unique_ptr<write_reply>> cli_write(raft::group_id group_id,
-                                                             raft::server_id target,
-                                                             std::string key, std::string value);
+    co_context::task<std::optional<std::unique_ptr<cli_read_reply>>> cli_read(
+        raft::server_id group_id, raft::server_id target, std::string key);
+    co_context::task<std::optional<std::unique_ptr<cli_write_reply>>> cli_write(
+        raft::group_id group_id, raft::server_id target, std::string key, std::string value);
 
    private:
     using address = std::pair<std::string, uint16_t>;

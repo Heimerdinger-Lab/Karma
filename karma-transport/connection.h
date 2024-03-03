@@ -1,8 +1,10 @@
 #pragma once
+#include <iostream>
 #include <memory>
 #include <optional>
 
 #include "co_context/all.hpp"
+#include "co_context/io_context.hpp"
 #include "frame.h"
 #include "write_task.h"
 namespace transport {
@@ -20,7 +22,7 @@ class connection {
     co_context::task<void> loop();
     co_context::inet_address m_inet_address;
     std::unique_ptr<co_context::socket> m_socket;
-    co_context::channel<write_task> m_write_task_chan;
+    co_context::channel<write_task, 1024> m_write_task_chan;
     std::string m_buffer;
     bool m_valid;
 };
