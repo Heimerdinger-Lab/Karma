@@ -1,12 +1,15 @@
-#include "write_task.h"
-std::unique_ptr<client::write_request> client::write_request::from_frame(transport::frame &frame) {
-    std::string buffer_header = frame.m_header;
-    auto header = flatbuffers::GetRoot<karma_rpc::WriteRequest>(buffer_header.data());
-    return std::make_unique<write_request>(header->group_id(), header->key()->str(),
-                                           header->value()->str());
+#include "cli_write_task.h"
+
+#include <boost/log/trivial.hpp>
+std::unique_ptr<client::cli_write_request> client::cli_write_request::from_frame(
+    transport::frame &frame) {
+    auto header = flatbuffers::GetRoot<karma_rpc::WriteRequest>(frame.m_header.data());
+    BOOST_LOG_TRIVIAL(trace) << "Generate a client write request from frame";
+    return std::make_unique<cli_write_request>(header->group_id(), header->key()->str(),
+                                               header->value()->str());
 };
 
-std::unique_ptr<transport::frame> client::write_request::gen_frame() {
+std::unique_ptr<transport::frame> client::cli_write_request::gen_frame() {
     auto ret_frame =
         std::make_unique<transport::frame>(karma_rpc::OperationCode::OperationCode_WRITE_TASK);
     // header
@@ -23,13 +26,14 @@ std::unique_ptr<transport::frame> client::write_request::gen_frame() {
     return ret_frame;
 }
 
-std::unique_ptr<client::write_reply> client::write_reply::from_frame(transport::frame &frame) {
-    std::string buffer_header = frame.m_header;
-    auto header = flatbuffers::GetRoot<karma_rpc::WriteReply>(buffer_header.data());
-    return std::make_unique<write_reply>(header->success());
+std::unique_ptr<client::cli_write_reply> client::cli_write_reply::from_frame(
+    transport::frame &frame) {
+    auto header = flatbuffers::GetRoot<karma_rpc::WriteReply>(frame.m_header.data());
+    BOOST_LOG_TRIVIAL(trace) << "Generate a client write reply from frame";
+    return std::make_unique<cli_write_reply>(header->success());
 };
 
-std::unique_ptr<transport::frame> client::write_reply::gen_frame() {
+std::unique_ptr<transport::frame> client::cli_write_reply::gen_frame() {
     auto ret_frame =
         std::make_unique<transport::frame>(karma_rpc::OperationCode::OperationCode_WRITE_TASK);
     // header

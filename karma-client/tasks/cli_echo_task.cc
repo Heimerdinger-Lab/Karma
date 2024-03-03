@@ -1,15 +1,16 @@
-#include "echo_task.h"
-std::unique_ptr<client::echo_request> client::echo_request::from_frame(transport::frame& frame) {
-    std::string buffer_header = frame.m_header;
-    std::cout << "buffer_header.size: " << buffer_header.size() << std::endl;
+#include "cli_echo_task.h"
+
+#include <boost/log/trivial.hpp>
+std::unique_ptr<client::cli_echo_request> client::cli_echo_request::from_frame(
+    transport::frame& frame) {
+    std::string& buffer_header = frame.m_header;
     auto header = flatbuffers::GetRoot<karma_rpc::EchoRequest>(buffer_header.data());
-    std::cout << "from_frame, header: " << header->msg()->str() << std::endl;
-    return std::make_unique<echo_request>(header->from_id(), header->group_id(),
-                                          header->msg()->str());
-    // return std::make_shared<echo_request>(0, 0, "123");
+    BOOST_LOG_TRIVIAL(trace) << "Generate an echo request from frame";
+    return std::make_unique<cli_echo_request>(header->from_id(), header->group_id(),
+                                              header->msg()->str());
 };
 
-std::unique_ptr<transport::frame> client::echo_request::gen_frame() {
+std::unique_ptr<transport::frame> client::cli_echo_request::gen_frame() {
     auto ret_frame =
         std::make_unique<transport::frame>(karma_rpc::OperationCode::OperationCode_ECHO);
     // header
@@ -25,15 +26,16 @@ std::unique_ptr<transport::frame> client::echo_request::gen_frame() {
     return ret_frame;
 };
 
-std::unique_ptr<client::echo_reply> client::echo_reply::from_frame(transport::frame& frame) {
-    std::string buffer_header = frame.m_header;
+std::unique_ptr<client::cli_echo_reply> client::cli_echo_reply::from_frame(
+    transport::frame& frame) {
+    std::string& buffer_header = frame.m_header;
     auto header = flatbuffers::GetRoot<karma_rpc::EchoReply>(buffer_header.data());
-    std::cout << "from_frame, header: " << header->msg()->str() << std::endl;
-    return std::make_unique<echo_reply>(header->from_id(), header->group_id(),
-                                        header->msg()->str());
+    BOOST_LOG_TRIVIAL(trace) << "Generate an echo reply from frame";
+    return std::make_unique<cli_echo_reply>(header->from_id(), header->group_id(),
+                                            header->msg()->str());
 };
 
-std::unique_ptr<transport::frame> client::echo_reply::gen_frame() {
+std::unique_ptr<transport::frame> client::cli_echo_reply::gen_frame() {
     auto ret_frame =
         std::make_unique<transport::frame>(karma_rpc::OperationCode::OperationCode_ECHO);
     // header

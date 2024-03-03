@@ -1,4 +1,6 @@
 #include "read_quorum_task.h"
+
+#include <boost/log/trivial.hpp>
 std::unique_ptr<transport::frame> client::read_quorum_reply::gen_frame() {
     auto ret_frame =
         std::make_unique<transport::frame>(karma_rpc::OperationCode::OperationCode_READ_QUORUM);
@@ -18,11 +20,11 @@ std::unique_ptr<transport::frame> client::read_quorum_reply::gen_frame() {
 
 std::unique_ptr<client::read_quorum_reply> client::read_quorum_reply::from_frame(
     transport::frame &frame) {
-    std::string buffer_header = frame.m_header;
-    auto header = flatbuffers::GetRoot<karma_rpc::ReadQuorumReply>(buffer_header.data());
+    auto header = flatbuffers::GetRoot<karma_rpc::ReadQuorumReply>(frame.m_header.data());
     raft::read_quorum_reply reply{.current_term = static_cast<raft::term_t>(header->current_term()),
                                   .commit_idx = static_cast<raft::index_t>(header->commit_idx()),
                                   .id = static_cast<raft::read_id>(header->id())};
+    BOOST_LOG_TRIVIAL(trace) << "Generate an read quorum reply from frame";
     return std::make_unique<read_quorum_reply>(header->from_id(), header->group_id(), reply);
 };
 
@@ -45,11 +47,11 @@ std::unique_ptr<transport::frame> client::read_quorum_request::gen_frame() {
 
 std::unique_ptr<client::read_quorum_request> client::read_quorum_request::from_frame(
     transport::frame &frame) {
-    std::string buffer_header = frame.m_header;
-    auto header = flatbuffers::GetRoot<karma_rpc::ReadQuorum>(buffer_header.data());
+    auto header = flatbuffers::GetRoot<karma_rpc::ReadQuorum>(frame.m_header.data());
     raft::read_quorum request{
         .current_term = static_cast<raft::term_t>(header->current_term()),
         .leader_commit_idx = static_cast<raft::index_t>(header->leader_commit_idx()),
         .id = static_cast<raft::read_id>(header->id())};
+    BOOST_LOG_TRIVIAL(trace) << "Generate an read quorum reply from frame";
     return std::make_unique<read_quorum_request>(header->from_id(), header->group_id(), request);
 };

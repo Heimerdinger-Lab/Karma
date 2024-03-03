@@ -1,6 +1,8 @@
 #include "worker.h"
+
+#include "co_context/io_context.hpp"
 co_context::task<> service::worker::start() {
-    BOOST_LOG_TRIVIAL(debug) << "worker starting";
+    BOOST_LOG_TRIVIAL(trace) << "Worker starting";
     auto rpc_ = std::make_unique<service::raft_rpc>(
         m_cfg.m_id, std::make_unique<client::client>(m_cfg.m_members));
     auto sm_ = std::make_unique<service::raft_state_machine>();
@@ -19,14 +21,13 @@ co_context::task<> service::worker::start() {
     // 提取IP地址和端口号
     std::string ip = current_address.substr(0, pos);
     std::string port = current_address.substr(pos + 1);
-    BOOST_LOG_TRIVIAL(debug) << "listenning at " << ip << ":" << port;
+    BOOST_LOG_TRIVIAL(trace) << "Listening at " << ip << ":" << port;
     co_context::inet_address addr(ip, std::stoi(port));
     m_ac = std::make_unique<co_context::acceptor>(addr);
     co_await m_raft->start();
     co_context::co_spawn([](raft_server& service) -> co_context::task<> {
         while (true) {
-            // std::cout << "tick, is_leader: " << service.is_leader() << std::endl;
-            BOOST_LOG_TRIVIAL(debug) << "tick";
+            BOOST_LOG_TRIVIAL(trace) << "tick";
             service.tick();
             using namespace std::literals;
             co_await co_context::timeout(1s);
@@ -35,15 +36,20 @@ co_context::task<> service::worker::start() {
 }
 
 co_context::task<> service::worker::loop() {
+    BOOST_LOG_TRIVIAL(trace) << "Worker loop start";
     while (true) {
+        clean_dead_session();
         struct sockaddr_in addr;
         socklen_t addr_len = sizeof(addr);
         auto sockfd = co_await m_ac->accept((sockaddr*)&addr, &addr_len);
-        BOOST_LOG_TRIVIAL(debug) << "receive connection from " << inet_ntoa(addr.sin_addr) << ":"
+        BOOST_LOG_TRIVIAL(trace) << "Receive connection from " << inet_ntoa(addr.sin_addr) << ":"
                                  << addr.sin_port;
+        assert(sockfd > 0);
         auto session =
             std::make_unique<service::session>(sockfd, "127.0.0.1", addr.sin_port, *m_raft);
-        session->process();
         m_sessions.emplace_back(std::move(session));
+        co_context::co_spawn([](service::session& session) -> co_context::task<> {
+            co_await session.process0();
+        }(*m_sessions.back()));
     }
 }

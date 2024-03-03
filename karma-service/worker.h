@@ -31,9 +31,18 @@ class worker {
     co_context::task<> loop();
 
    private:
+    void clean_dead_session() {
+        for (auto it = m_sessions.begin(); it != m_sessions.end();) {
+            if (!(*it)->valid()) {
+                BOOST_LOG_TRIVIAL(trace) << "Remove a dead server session";
+                it = m_sessions.erase(it);
+            } else {
+                it++;
+            }
+        }
+    }
     config m_cfg;
     std::vector<std::unique_ptr<session>> m_sessions;
-
     std::unique_ptr<raft_server> m_raft;
     std::unique_ptr<co_context::acceptor> m_ac;
 };

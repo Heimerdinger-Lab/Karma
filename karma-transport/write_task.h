@@ -6,6 +6,6 @@
 namespace transport {
 struct write_task {
     frame& m_frame;
-    co_context::channel<std::optional<connection_error>>& m_observer;
+    co_context::channel<bool>& m_observer;
 };
 }  // namespace transport

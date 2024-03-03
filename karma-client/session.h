@@ -1,16 +1,18 @@
 #pragma once
+#include <algorithm>
 #include <cstdint>
+#include <functional>
+#include <map>
 #include <memory>
 #include <unordered_map>
 
 #include "co_context/io_context.hpp"
-#include "karma-client/tasks/echo_task.h"
-#include "karma-client/tasks/read_task.h"
+#include "karma-client/tasks/cli_echo_task.h"
+#include "karma-client/tasks/cli_read_task.h"
+#include "karma-client/tasks/cli_write_task.h"
 #include "karma-client/tasks/task.h"
-#include "karma-client/tasks/write_task.h"
 #include "karma-transport/connection.h"
-#include "karma-transport/frame.h"
-#include "protocol/rpc_generated.h"
+
 namespace client {
 class session {
    public:
@@ -18,11 +20,12 @@ class session {
         : m_connection(std::move(connection)) {
         co_context::co_spawn(loop());
     }
-    co_context::task<void> write(task& task_);
+    co_context::task<bool> write(task& task_);
+    bool valid() { return m_connection->valid(); }
 
    private:
     co_context::task<void> loop();
     std::unique_ptr<transport::connection> m_connection;
-    std::unordered_map<uint32_t, task*> m_inflight_requests;
+    std::map<uint32_t, task*> m_inflight_requests;
 };
 }  // namespace client
