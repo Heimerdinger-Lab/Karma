@@ -5,6 +5,7 @@
 #include <deque>
 #include <iostream>
 #include <memory>
+#include <span>
 #include <vector>
 
 #include "karma-store/buf/aligned_buf.h"
@@ -15,12 +16,10 @@ class aligned_buf_writer {
         uint64_t from = cursor / aligned_buf_alignment * aligned_buf_alignment;
         m_current = std::make_unique<aligned_buf>(from);
     };
-    ~aligned_buf_writer() { std::cout << "~abf" << std::endl; }
-    // bool buffering() {
-    //     return m_buffering;
-    // }
+    ~aligned_buf_writer() {}
+
     uint64_t cursor() { return m_cursor; }
-    bool write(sslice data) {
+    bool write(std::span<char> data) {
         uint64_t len = data.size();
         uint64_t pos = 0;
         while (true) {
@@ -31,20 +30,16 @@ class aligned_buf_writer {
                 break;
             } else {
                 // 前r个
-                // data.remove_prefix(0);
-                m_current->write_buf(m_cursor + pos, sslice(data.data(), r));
-                data.remove_prefix(r);
+                m_current->write_buf(m_cursor + pos, data.subspan(0, r));
+                data = data.subspan(r);
                 pos += r;
                 // 写满了
-                m_full.push_back(std::move(m_current));
-                std::cout << "new: " << m_current->wal_offset() + m_current->limit() << std::endl;
+                m_full.push_back(m_current);
                 m_current =
-                    std::make_unique<aligned_buf>(m_current->wal_offset() + m_current->limit());
+                    std::make_shared<aligned_buf>(m_current->wal_offset() + m_current->limit());
             }
         };
-        std::cout << "len = " << len << std::endl;
         m_cursor += len;
-        // m_buffering = true;
         m_dirty = true;
         return true;
     };
@@ -52,20 +47,15 @@ class aligned_buf_writer {
         std::string str;
         PutFixed32(&str, value);
         assert(str.size() == 4);
-        sslice sstr(str);
-        return write(sstr);
+        return write(std::span<char>(str));
     }
 
     bool write_u64(uint64_t value) {
         std::string str;
         PutFixed64(&str, value);
-        sslice sstr(str);
-        return write(sstr);
+        return write(std::span<char>(str));
     }
-    bool dirty() {
-        return m_dirty;
-        // return true;
-    }
+    bool dirty() { return m_dirty; }
     void set_dirty(bool value) { m_dirty = value; }
 
    public:

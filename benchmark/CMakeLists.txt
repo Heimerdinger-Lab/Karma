@@ -6,4 +6,4 @@ message(STATUS "BENCHMARK_SRCS: ${BENCHMARK_SRCS}")
 
 add_executable(${KARMA_BENCH} ${BENCHMARK_HEADERS} ${BENCHMARK_SRCS})
 target_include_directories(${KARMA_BENCH} PRIVATE . ${CMAKE_SOURCE_DIR} ${CO_CONTEXT_DIR})
-target_link_libraries(${KARMA_BENCH} ${CO_CONTEXT} ${KARMA_STORE} )
+target_link_libraries(${KARMA_BENCH} ${CO_CONTEXT} ${KARMA_STORE} ${KARMA_CLIENT}  )

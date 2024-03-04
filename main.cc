@@ -1,3 +1,5 @@
+#include <boost/log/core.hpp>
+#include <boost/log/expressions.hpp>
 #include <boost/log/trivial.hpp>
 #include <co_context/io_context.hpp>
 
@@ -10,7 +12,6 @@ service::config parse_config(std::string path) {
     cfg.m_id = config["raft"]["server_id"].value_or(5555);
     cfg.m_count = config["raft"]["count"].value_or(3);
     cfg.m_store_path = config["store"]["path"].value_or("~/temp/");
-    // cfg.m_listen_ip =
     auto members = config["raft"]["members"];
     for (int i = 0; i < config["raft"]["count"].value_or(5); i++) {
         BOOST_LOG_TRIVIAL(debug) << "member[" << i << "]: " << members[i];
@@ -23,6 +24,9 @@ int main(int argc, char *argv[]) {
         BOOST_LOG_TRIVIAL(error) << "./karma <configuration file path>";
         return 0;
     }
+    // boost::log::core::get()->set_filter(boost::log::trivial::severity >=
+    //                                     boost::log::trivial::fatal);
+
     co_context::io_context ctx;
     BOOST_LOG_TRIVIAL(debug) << "Start Genshin Impact!";
     service::config cfg = parse_config(argv[1]);

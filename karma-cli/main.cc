@@ -23,6 +23,7 @@ co_context::task<> cli() {
     client::client ccc(members);
     // raft::server_address from(0, "127.0.0.1:5555");
     while (true) {
+        std::cout << "3: echo" << std::endl;
         std::cout << "1: write" << std::endl;
         std::cout << "2: read" << std::endl;
         int opt;
@@ -31,9 +32,11 @@ co_context::task<> cli() {
             co_await ccc.cli_write(0, 1, "key01", "value01");
         } else if (opt == 2) {
             auto value = co_await ccc.cli_read(0, 1, "key01");
-            std::cout << "value = " << value->value() << std::endl;
-        } else {
-            break;
+            std::cout << "value = " << value.value()->value() << std::endl;
+        } else if (opt == 3) {
+            auto reply = co_await ccc.cli_echo(0, 1, "hello from tianpingan@2024");
+            std::cout << "reply: " << reply.value()->msg() << std::endl;
+            // break;
         }
     }
 }

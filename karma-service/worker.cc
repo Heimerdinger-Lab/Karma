@@ -33,6 +33,7 @@ co_context::task<> service::worker::start() {
             co_await co_context::timeout(1s);
         }
     }(*m_raft));
+    co_return;
 }
 
 co_context::task<> service::worker::loop() {
