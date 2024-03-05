@@ -4,15 +4,17 @@
 #include <cstdint>
 
 #include "karma-store/common.h"
-bool segment_file::read_exact_at(sslice *data, uint64_t wal_offset, uint64_t size) {
+bool segment_file::read_exact_at(std::string &data, uint64_t wal_offset, uint64_t size) {
     if (size <= 0) return false;
+    data.clear();
+    data.resize(size);
     auto buf = aligned_buf_reader::alloc_read_buf(wal_offset, size);
     int ret = ::pread(m_fd, buf->buf(), buf->capacity(), buf->wal_offset() - m_wal_offset);
     if (ret < 0) {
         BOOST_LOG_TRIVIAL(error) << "Fail to pread current segment file";
         return false;
     }
-    ::memcpy((char *)data->data(), buf->buf() + wal_offset - buf->wal_offset(), size);
+    ::memcpy((char *)data.data(), buf->buf() + wal_offset - buf->wal_offset(), size);
     return true;
 }
 

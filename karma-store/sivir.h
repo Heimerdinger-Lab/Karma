@@ -30,8 +30,6 @@
 #include <liburing.h>
 
 #include <boost/noncopyable.hpp>
-#include <thread>
-#include <utility>
 #include <variant>
 #include <vector>
 
@@ -42,16 +40,6 @@ class sivir : public std::enable_shared_from_this<sivir>, public boost::noncopya
     sivir();
     bool open(open_options &opt);
     ~sivir() { m_io_ctx->join(); }
-    void start() {
-        m_io_ctx = std::make_unique<co_context::io_context>();
-        auto sb = shared_from_this();
-        m_io_ctx->co_spawn([](std::shared_ptr<sivir> s) -> co_context::task<> {
-            co_await s->worker_run();
-            co_return;
-        }(sb));
-        m_io_ctx->start();
-    }
-    co_context::task<> recover() {}
     co_context::task<bool> put(const write_options &opt, std::string &key, std::string &value);
     co_context::task<bool> del(std::string &key);
     co_context::task<bool> get(std::string &key, std::string &value);
@@ -70,7 +58,7 @@ class sivir : public std::enable_shared_from_this<sivir>, public boost::noncopya
 
         reap 读请求后，直接给read_task的observer发送数据
     */
-
+    bool decord_record(std::string &record, std::string &key, std::string &value);
     void init_uring() {}
     co_context::task<> worker_run();
     co_context::task<bool> on_complete(uring_context *ctx);

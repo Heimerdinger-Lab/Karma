@@ -15,6 +15,7 @@ class aligned_buf_writer {
     aligned_buf_writer(uint64_t cursor) : m_cursor(cursor) {
         uint64_t from = cursor / aligned_buf_alignment * aligned_buf_alignment;
         m_current = std::make_unique<aligned_buf>(from);
+        m_current->set_limit(cursor - from);
     };
     ~aligned_buf_writer() {}
 
@@ -57,6 +58,7 @@ class aligned_buf_writer {
     }
     bool dirty() { return m_dirty; }
     void set_dirty(bool value) { m_dirty = value; }
+    std::shared_ptr<aligned_buf> current_aligned_buf() { return m_current; }
 
    public:
     uint64_t m_cursor;
