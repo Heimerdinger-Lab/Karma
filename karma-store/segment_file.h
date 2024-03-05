@@ -30,7 +30,7 @@ class segment_file : public boost::noncopyable {
     bool read_write_status() { return m_status == status::read_write; }
     void set_read_write_status() { m_status = status::read_write; }
     void set_written(uint64_t written) { m_written = written; }
-    bool read_exact_at(sslice *data, uint64_t wal_offset, uint64_t size);
+    bool read_exact_at(std::string &data, uint64_t wal_offset, uint64_t size);
     uint32_t cal_crc32(sslice &slice) { return 0; }
     uint32_t cal_length_type(uint64_t size, uint8_t type = 0) { return size << 8 | type; }
     uint64_t append_record(aligned_buf_writer &writer, std::span<char> slice);
@@ -39,6 +39,7 @@ class segment_file : public boost::noncopyable {
     static void alloc_segment();
     bool can_hold(uint64_t size);
     int fd() { return m_fd; }
+    bool full() { return m_written == m_size; }
 
    private:
     enum status {

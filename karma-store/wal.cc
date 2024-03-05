@@ -32,39 +32,55 @@ bool wal::load_from_path(std::string directory_path, uint64_t segment_file_size)
 /// |CRC (4B) | Size (3B) | Type (1B) | Payload   |
 /// +---------+-----------+-----------+--- ... ---+
 bool wal::scan_record(uint64_t& wal_offset, std::string& str) {
+    str.clear();
     for (const auto& item : m_segments) {
         if (item->wal_offset() <= wal_offset && item->wal_offset() + item->size() > wal_offset) {
+            item->set_read_write_status();
             uint64_t pos = wal_offset - item->wal_offset();
-            if (pos + 8 > item->size()) {
-                wal_offset = item->wal_offset() + item->size();
+            if (pos + store::RECORD_HEADER_LENGTH > item->size()) {
+                str.resize(item->size() - pos);
+                item->set_written(item->size());
+                item->set_read_status();
                 return true;
             }
-
-            sslice data(std::string(4, ' '));
-
-            // 读4个字节
-            item->read_exact_at(&data, wal_offset, 4);
+            std::string data;
+            item->read_exact_at(data, wal_offset, 4);
+            str += data;
             auto crc32 = DecodeFixed32(data.data());
-            item->read_exact_at(&data, wal_offset + 4, 4);
+            item->read_exact_at(data, wal_offset + 4, 4);
+            str += data;
+            assert(str.size() == store::RECORD_HEADER_LENGTH);
             auto size_type = DecodeFixed32(data.data());
             auto type = size_type & ((1 << 8) - 1);
             auto size = size_type >> 8;
-            if (pos + store::RECORD_HEADER_LENGTH + size <= item->size()) {
-                str.resize(size);
-                sslice record(str);
-                item->read_exact_at(&record, wal_offset + 8, size);
-                //
-                if (crc32 == 0) {
-                    // 失效
-                    item->set_read_write_status();
+            if (type == 0) {
+                // valid command
+                if (pos + store::RECORD_HEADER_LENGTH + size <= item->size()) {
+                    item->read_exact_at(data, wal_offset + store::RECORD_HEADER_LENGTH, size);
+                    auto crc32_check = crc32c::Value(data.data(), data.size());
+                    if (crc32 != crc32_check) {
+                        // 失效
+                        BOOST_LOG_TRIVIAL(error) << "Corrupt record";
+                        return false;
+                    }
+                    str += data;
+                    item->set_written(pos + store::RECORD_HEADER_LENGTH + size);
+                    if (item->full()) {
+                        item->set_read_status();
+                    }
+                    return true;
+                } else {
+                    BOOST_LOG_TRIVIAL(error) << "Corrupt record";
                     return false;
                 }
-                wal_offset += store::RECORD_HEADER_LENGTH + size;
-                item->set_written(wal_offset - item->wal_offset());
-            } else {
+                return true;
+            } else if (type == 1) {
+                // padding
+                str.resize(item->size() - pos);
+                item->set_written(item->size());
+                item->set_read_status();
+                return true;
             }
-
-            return true;
         }
     }
     return false;
@@ -114,7 +130,7 @@ void wal::try_close_segment(uint64_t first_wal_offset) {}
 std::optional<std::reference_wrapper<segment_file>> wal::segment_file_of(uint64_t wal_offset) {
     for (const auto& item : m_segments) {
         if (wal_offset >= item->wal_offset() && wal_offset < (item->wal_offset() + item->size())) {
-            return *item;
+            return std::ref(*item);
         }
     }
     BOOST_LOG_TRIVIAL(error) << "Fail to find a segment file that contains this wal_offset : "
@@ -127,4 +143,13 @@ void wal::seal_old_segment(uint64_t wal_offset) {
             item->set_read_status();
         }
     }
+}
+uint64_t wal::get_check_point() {
+    // return the first segment file and the first record's index
+    if (m_segments.empty()) {
+        BOOST_LOG_TRIVIAL(trace) << "Empty directory, the check point is zero";
+        return 0;
+    }
+    // segments are sorted by wal_offset
+    return m_segments[0]->wal_offset();
 }

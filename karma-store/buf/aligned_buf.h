@@ -60,6 +60,7 @@ class aligned_buf {
     uint64_t wal_offset() { return m_wal_offset; }
     char* buf() { return m_buf; }
     uint64_t capacity() { return m_capacity; }
+    void set_limit(uint64_t pos) { m_limit.store(pos, std::memory_order_relaxed); }
 
    private:
     // [m_wal_offset, m_wal_offset + m_capacity)
