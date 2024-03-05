@@ -5,6 +5,7 @@
 #include <exception>
 
 #include "karma-store/common.h"
+#include "protocol/rpc_generated.h"
 store::sivir::sivir(){};
 // should open it out side the io_context
 bool store::sivir::open(open_options &opt) {
@@ -25,14 +26,36 @@ bool store::sivir::open(open_options &opt) {
         return false;
     }
 
-    // TODO recover
     BOOST_LOG_TRIVIAL(trace) << "Succeed to load files, start to recover from these files";
     std::string record;
-    uint64_t start_wal_offset = 0;
-
+    uint64_t start_wal_offset = m_wal.get_check_point();
+    while (m_wal.scan_record(start_wal_offset, record)) {
+        std::string key, value;
+        bool ret = decord_record(record, key, value);
+        assert(ret);
+        BOOST_LOG_TRIVIAL(trace) << "Recover a record, key: " << key << ", value: " << value;
+        // set the memtable
+        m_map[key] = record_pos{.start_wal_offset = start_wal_offset, .record_size = record.size()};
+        start_wal_offset += record.size();
+        record.clear();
+    };
     // initialize the writer and window
+
     m_buf_writer = std::make_unique<aligned_buf_writer>(start_wal_offset);
     m_window.commit(0, start_wal_offset);
+
+    // read the current aligned buf
+    auto aligned_buf = m_buf_writer->current_aligned_buf();
+    if (aligned_buf->limit() > 0) {
+        auto fd_opt = m_wal.segment_file_of(aligned_buf->wal_offset());
+        assert(fd_opt.has_value());
+        auto &fd = fd_opt.value().get();
+        ::pread(fd.fd(), aligned_buf->buf(), aligned_buf->capacity(),
+                aligned_buf->wal_offset() - fd.wal_offset());
+        BOOST_LOG_TRIVIAL(trace) << "Recover the current aligned_buf, limit: "
+                                 << aligned_buf->limit();
+    }
+
     // create an io thread
     m_io_ctx = std::make_unique<co_context::io_context>();
     m_io_ctx->co_spawn(worker_run());
@@ -92,6 +115,23 @@ co_context::task<bool> store::sivir::get(std::string &key, std::string &value) {
     auto header = flatbuffers::GetRoot<karma_rpc::Command>(record.data() + 8);
     value.append(header->value()->str().data(), header->value()->str().size());
     co_return true;
+}
+
+bool store::sivir::decord_record(std::string &record, std::string &key, std::string &value) {
+    auto cmd = flatbuffers::GetRoot<karma_rpc::Command>(record.data() + RECORD_HEADER_LENGTH);
+    if (cmd->type() == karma_rpc::CommandType_VALUE) {
+        //
+        key = cmd->key()->str();
+        value = cmd->value()->str();
+        return true;
+    } else if (cmd->type() == karma_rpc::CommandType_DELETE) {
+        // no implement
+        BOOST_LOG_TRIVIAL(error) << "The DELETE command has not been implemented yet.";
+    } else {
+        // no implement
+        BOOST_LOG_TRIVIAL(error) << "UNKNOW Command";
+    }
+    return false;
 }
 
 co_context::task<> store::sivir::worker_run() {
@@ -203,6 +243,7 @@ void store::sivir::build_write_sqe() {
         auto sqe = io_uring_get_sqe(&m_data_ring);  // 从环中得到一块空位
         auto segment_opt = m_wal.segment_file_of(item->wal_offset());
         auto &segment = segment_opt.value().get();
+
         io_uring_prep_write(sqe, segment.fd(), item->buf(), item->capacity(),
                             item->wal_offset() - segment.wal_offset());
         uring_context *ctx = new uring_context();
@@ -224,7 +265,6 @@ void store::sivir::build_write_sqe() {
         auto &segment = segment_opt.value().get();
         io_uring_prep_write(sqe, segment.fd(), item->buf(), item->capacity(),
                             item->wal_offset() - segment.wal_offset());
-
         uring_context *ctx = new uring_context();
         ctx->opcode = uring_op::write;
         ctx->detail = write_uring_context{.buffer = item};

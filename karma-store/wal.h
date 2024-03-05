@@ -21,6 +21,7 @@ class wal : public boost::noncopyable {
     void try_close_segment(uint64_t first_wal_offset);
     std::optional<std::reference_wrapper<segment_file>> segment_file_of(uint64_t wal_offset);
     void seal_old_segment(uint64_t wal_offset);
+    uint64_t get_check_point();
 
    private:
     std::vector<std::unique_ptr<segment_file>> m_segments;
