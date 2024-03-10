@@ -41,10 +41,17 @@ co_context::task<void> service::session::read_loop(
                 BOOST_LOG_TRIVIAL(trace) << "Receive an client read request";
                 auto read_task = client::cli_read_request::from_frame(*frame);
                 auto val = co_await m_raft.cli_read(read_task->key());
-                client::cli_read_reply reply(true, val);
-                auto frame = reply.gen_frame();
-                frame->m_seq = frame->m_seq;
-                co_await channel.release(std::move(frame));
+                if (val.has_value()) {
+                    client::cli_read_reply reply(true, val.value());
+                    auto frame = reply.gen_frame();
+                    frame->m_seq = frame->m_seq;
+                    co_await channel.release(std::move(frame));
+                } else {
+                    client::cli_read_reply reply(false, "");
+                    auto frame = reply.gen_frame();
+                    frame->m_seq = frame->m_seq;
+                    co_await channel.release(std::move(frame));
+                }
             } else if (frame->m_operation_code == karma_rpc::OperationCode_WRITE_TASK) {
                 BOOST_LOG_TRIVIAL(trace) << "Receive an client write request";
                 auto write_task = client::cli_write_request::from_frame(*frame);
@@ -56,7 +63,12 @@ co_context::task<void> service::session::read_loop(
             } else {
                 BOOST_LOG_TRIVIAL(error) << "Receive an unexpected request";
             }
+            // 这里还有两种，一种的follower发过来的请求leader去append entry和read的请求
+            // 这里去执行execute_add_entry
+            // 得到reply后，利用这个session直接发一个response
         } else {
+            // 有follower可能收到Append entry 和 read barrier的来自leader的响应
+            //
             BOOST_LOG_TRIVIAL(error) << "Receive an unexpected reply on server session";
         }
     }
