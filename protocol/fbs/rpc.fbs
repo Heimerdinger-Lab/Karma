@@ -7,9 +7,13 @@ enum OperationCode : short {
     APPEND_ENTRY = 0x0003,
     VOTE = 0x0004,
     TIME_OUT = 0x0005,
-    READ_QUORUM = 0x0006,
+    READ_QUORUM = 0x0006,    
+    // for client
     READ_TASK = 0x0007,
     WRITE_TASK = 0x0008,
+    // for forward
+    FORWARD_APPEND_ENTRY = 0x0009,
+    FORWARD_READ_BARRIER = 0x000A,
 }
 
 
@@ -107,6 +111,8 @@ table EchoReply {
     msg: string;
 }
 
+
+
 // 
 enum CommandType : short {
     UNKNOW = 0x0000,
@@ -139,4 +145,32 @@ table WriteRequest {
 }
 table WriteReply {
     success: bool;
+}
+
+
+// forward to leader
+table ForwardAppendEntry {
+    from_id: int64 = -1;
+    group_id: int64 = -1;
+    // 
+    command: Command;
+}
+table ForwardAppendEntryReply {
+    from_id: int64 = -1;
+    group_id: int64 = -1;
+    // 
+    success: bool;
+    entry_id: int64 = -1;
+    term: int64 = -1;
+}
+table ForwardReadBarrier {
+    from_id: int64 = -1;
+    group_id: int64 = -1;
+}
+table ForwardReadBarrierReply {
+    from_id: int64 = -1;
+    group_id: int64 = -1;
+    // 
+    success: bool;
+    index: int64 = -1;
 }

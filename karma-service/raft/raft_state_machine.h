@@ -1,6 +1,7 @@
 #pragma once
 #include <flatbuffers/buffer.h>
 
+#include <boost/log/trivial.hpp>
 #include <iostream>
 #include <map>
 #include <ratio>
@@ -8,21 +9,19 @@
 #include "karma-raft/raft.hh"
 #include "protocol/rpc_generated.h"
 namespace service {
-class raft_state_machine : public raft::state_machine {
+class raft_state_machine {
    public:
     ~raft_state_machine() {}
-    co_context::task<> apply(std::vector<raft::command> command) override {
-        std::cout << "applying" << std::endl;
+    co_context::task<> apply(std::vector<raft::command> command) {
         for (auto& item : command) {
             std::string key, value;
             std::string sb = item.data();
             int size = item.size();
-            std::cout << "2cmd_size" << size << std::endl;
-            std::cout << "2cmd: " << item << std::endl;
+
             auto header = flatbuffers::GetRoot<karma_rpc::Command>(item.data());
-            std::cout << "state machine receive: " << header->type()
-                      << ", key: " << header->key()->str() << ", value: " << header->value()->str()
-                      << std::endl;
+            BOOST_LOG_TRIVIAL(trace)
+                << "State machine receive: " << header->type() << ", key: " << header->key()->str()
+                << ", value: " << header->value()->str() << std::endl;
             m_kv[header->key()->str()] = header->value()->str();
         }
         co_return;

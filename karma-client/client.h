@@ -12,6 +12,8 @@
 #include "karma-client/tasks/cli_echo_task.h"
 #include "karma-client/tasks/cli_read_task.h"
 #include "karma-client/tasks/cli_write_task.h"
+#include "karma-client/tasks/forward_append_entry_task.h"
+#include "karma-client/tasks/forward_read_barrier_task.h"
 #include "karma-client/tasks/read_quorum_task.h"
 #include "karma-client/tasks/time_out_task.h"
 #include "karma-client/tasks/vote_task.h"
@@ -46,6 +48,41 @@ class client {
                                        const raft::read_quorum& read_quorum);
     co_context::task<bool> read_quorum_reply_(raft::server_id start, raft::server_id target,
                                               const raft::read_quorum_reply& read_quorum_reply_);
+
+    // two way rpc
+    co_context::task<std::optional<std::unique_ptr<forward_append_entry_task_reply>>>
+    forward_add_entry(raft::server_id start, raft::server_id target, std::string& key,
+                      std::string& value) {
+        auto prom = std::make_unique<
+            co_context::channel<std::unique_ptr<forward_append_entry_task_reply>>>();
+        auto req = std::make_unique<forward_append_entry_task>(start, target, key, value);
+        req->set_prom(prom.get());
+        auto session = co_await m_session_manager->get_composite_session(m_members[target].first,
+                                                                         m_members[target].second);
+        if (session.has_value()) {
+            co_await session.value().get().request(*req);
+            auto reply = co_await prom->acquire();
+            co_return reply;
+        }
+        co_return std::nullopt;
+    }
+
+    co_context::task<std::optional<std::unique_ptr<forward_read_barrier_task_reply>>>
+    forward_read_barrier(raft::server_id start, raft::server_id target) {
+        auto prom = std::make_unique<
+            co_context::channel<std::unique_ptr<forward_read_barrier_task_reply>>>();
+        auto req = std::make_unique<forward_read_barrier_task>(start, target);
+        req->set_prom(prom.get());
+        auto session = co_await m_session_manager->get_composite_session(m_members[target].first,
+                                                                         m_members[target].second);
+        if (session.has_value()) {
+            co_await session.value().get().request(*req);
+            auto reply = co_await prom->acquire();
+            co_return reply;
+        }
+        co_return std::nullopt;
+    }
+
     // two way rpc
     co_context::task<std::optional<std::unique_ptr<cli_echo_reply>>> cli_echo(
         raft::server_id start, raft::server_id target, std::string msg);

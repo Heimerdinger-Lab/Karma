@@ -4,6 +4,6 @@ add_executable(${TEST_KARMA_TRANSPORT} ${SOURCES})
 
 target_include_directories(${TEST_KARMA_TRANSPORT} PRIVATE . ${CMAKE_SOURCE_DIR})
 
-target_link_libraries(${TEST_KARMA_TRANSPORT} ${KARMA_TRANSPORT} Boost::unit_test_framework)
+target_link_libraries(${TEST_KARMA_TRANSPORT} ${KARMA_TRANSPORT} ${KARMA_UTIL} Boost::unit_test_framework)
 
 add_test(NAME ${TEST_KARMA_TRANSPORT} WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY} COMMAND ${TEST_KARMA_TRANSPORT})
