@@ -1,29 +1,30 @@
 #include "raft_server.h"
 
+#include <memory>
 #include <optional>
 
 #include "co_context/io_context.hpp"
 #include "karma-raft/raft.hh"
+#include "karma-service/raft/temp_persistence.h"
 service::raft_server::raft_server(raft::server_id id,
                                   std::unique_ptr<service::raft_state_machine> sm,
                                   std::unique_ptr<service::raft_rpc> rpc_,
                                   std::unique_ptr<raft::failure_detector> fd_,
+                                  std::unique_ptr<service::temp_persistence> persistence_,
                                   std::vector<raft::config_member> members)
     : _id(id),
       _state_machine(std::move(sm)),
       _rpc(std::move(rpc_)),
       _failure_detector(std::move(fd_)),
+      _persistence(std::move(persistence_)),
       _members(members) {}
 
 co_context::task<> service::raft_server::start() {
     // TODO: Use real snapshot
-    raft::snapshot_descriptor snp;
-    snp.id = 0;
-    snp.idx = 0;
-    snp.term = 0;
-    //
+
     auto [term, vote] = co_await _persistence->load_term_and_vote();
     auto log_entries = co_await _persistence->load_log();
+    auto snp = co_await _persistence->load_snapshot_descriptor();
     raft::index_t commit_idx = 0;
 
     BOOST_LOG_TRIVIAL(trace) << "Raft server starting";
@@ -86,25 +87,25 @@ co_context::task<> service::raft_server::wait_for_apply(raft::index_t idx) {
 template <typename Message>
 co_context::task<> service::raft_server::send_message(raft::server_id id, Message msg) {
     if (std::holds_alternative<raft::append_request>(msg)) {
-        BOOST_LOG_TRIVIAL(trace) << "Raft server send an append_request" << std::endl;
+        BOOST_LOG_TRIVIAL(trace) << "Raft server send an append_request to " << id << std::endl;
         co_await _rpc->send_append_entries(id, std::get<raft::append_request>(msg));
     } else if (std::holds_alternative<raft::append_reply>(msg)) {
-        BOOST_LOG_TRIVIAL(trace) << "Raft server send an append_reply" << std::endl;
+        BOOST_LOG_TRIVIAL(trace) << "Raft server send an append_reply to " << id << std::endl;
         co_await _rpc->send_append_entries_reply(id, std::get<raft::append_reply>(msg));
     } else if (std::holds_alternative<raft::vote_request>(msg)) {
-        BOOST_LOG_TRIVIAL(trace) << "Raft server send an vote_request" << std::endl;
+        BOOST_LOG_TRIVIAL(trace) << "Raft server send an vote_request to " << id << std::endl;
         co_await _rpc->send_vote_request(id, std::get<raft::vote_request>(msg));
     } else if (std::holds_alternative<raft::vote_reply>(msg)) {
-        BOOST_LOG_TRIVIAL(trace) << "Raft server send an vote_reply" << std::endl;
+        BOOST_LOG_TRIVIAL(trace) << "Raft server send an vote_reply to " << id << std::endl;
         co_await _rpc->send_vote_reply(id, std::get<raft::vote_reply>(msg));
     } else if (std::holds_alternative<raft::timeout_now>(msg)) {
-        BOOST_LOG_TRIVIAL(trace) << "Raft server send an timeout_now" << std::endl;
+        BOOST_LOG_TRIVIAL(trace) << "Raft server send an timeout_now to " << id << std::endl;
         co_await _rpc->send_timeout_now(id, std::get<raft::timeout_now>(msg));
     } else if (std::holds_alternative<raft::read_quorum>(msg)) {
-        BOOST_LOG_TRIVIAL(trace) << "Raft server send an read_quorum" << std::endl;
+        BOOST_LOG_TRIVIAL(trace) << "Raft server send an read_quorum to " << id << std::endl;
         co_await _rpc->send_read_quorum(id, std::get<raft::read_quorum>(msg));
     } else if (std::holds_alternative<raft::read_quorum_reply>(msg)) {
-        BOOST_LOG_TRIVIAL(trace) << "Raft server send an read_quorum_reply" << std::endl;
+        BOOST_LOG_TRIVIAL(trace) << "Raft server send an read_quorum_reply to " << id << std::endl;
         co_await _rpc->send_read_quorum_reply(id, std::get<raft::read_quorum_reply>(msg));
     }
     co_return;
@@ -205,24 +206,18 @@ co_context::task<bool> service::raft_server::cli_write(std::string key, std::str
         std::string cmd_str;
         cmd_str.append(buffer, buffer + size);
         auto& entry = _fsm->add_entry(cmd_str);
-        co_await wait_for_commit(entry.idx);
+        // co_await wait_for_commit(entry.idx);
         co_return true;
     } else {
         // 呜呜呜我不是leader
-        auto reply = co_await _rpc->forward_add_entry(leader_id, key, value);
-        if (reply.index() == 0) {
-            auto commit_index = std::get<raft::entry_id>(reply);
-            co_await wait_for_commit(commit_index.idx);
-            co_return true;
-        } else {
-            co_return false;
-        }
+        auto reply = co_await _rpc->forward_cli_write(leader_id, key, value);
+        co_return reply;
     }
 }
 
 co_context::task<std::optional<std::string>> service::raft_server::cli_read(std::string key) {
     auto ret = co_await read_barrier();
-    if (ret) {
+    if (!ret) {
         co_return std::nullopt;
     }
     auto value = _state_machine->get(key);

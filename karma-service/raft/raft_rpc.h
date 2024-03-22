@@ -55,19 +55,14 @@ class raft_rpc {
         }
         co_return std::monostate{};
     }
-    co_context::task<raft::add_entry_reply> forward_add_entry(raft::server_id id, std::string& key,
-                                                              std::string& value) {
+    co_context::task<bool> forward_cli_write(raft::server_id id, std::string& key,
+                                             std::string& value) {
         // two-way rpc
-        auto reply = co_await m_client->forward_add_entry(m_id, id, key, value);
+        auto reply = co_await m_client->forward_cli_write(m_id, id, key, value);
         if (reply.has_value()) {
-            if (reply.value()->success()) {
-                auto entry_id = reply.value()->reply();
-                co_return entry_id;
-            } else {
-                co_return raft::transient_error("", 0);
-            }
+            co_return reply.value()->success();
         }
-        co_return raft::transient_error("", 0);
+        co_return false;
     }
     co_context::task<> abort() {}
 

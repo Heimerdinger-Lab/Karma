@@ -15,6 +15,7 @@
 #include "karma-service/raft/raft_failure_detector.h"
 #include "karma-service/raft/raft_rpc.h"
 #include "karma-service/raft/raft_state_machine.h"
+#include "karma-service/raft/temp_persistence.h"
 #include "protocol/rpc_generated.h"
 #include "raft/raft_persistence.h"
 namespace service {
@@ -23,17 +24,19 @@ class raft_server {
     raft_server(raft::server_id id, std::unique_ptr<service::raft_state_machine> sm,
                 std::unique_ptr<service::raft_rpc> rpc_,
                 std::unique_ptr<raft::failure_detector> fd_,
+                std::unique_ptr<service::temp_persistence> persistence_,
                 std::vector<raft::config_member> members);
     co_context::task<> start();
     void tick() { _fsm->tick(); }
     bool is_leader() { return _fsm->is_leader(); }
-    static std::unique_ptr<raft_server> create(raft::server_id id,
-                                               std::unique_ptr<service::raft_state_machine> sm,
-                                               std::unique_ptr<service::raft_rpc> rpc_,
-                                               std::unique_ptr<service::raft_failure_detector> fd_,
-                                               std::vector<raft::config_member> members) {
+    static std::unique_ptr<raft_server> create(
+        raft::server_id id, std::unique_ptr<service::raft_state_machine> sm,
+        std::unique_ptr<service::raft_rpc> rpc_,
+        std::unique_ptr<service::raft_failure_detector> fd_,
+        std::unique_ptr<service::temp_persistence> persistence_,
+        std::vector<raft::config_member> members) {
         return std::make_unique<raft_server>(id, std::move(sm), std::move(rpc_), std::move(fd_),
-                                             members);
+                                             std::move(persistence_), members);
     }
 
     void receive(raft::server_id from, raft::rpc_message msg);
@@ -67,7 +70,7 @@ class raft_server {
     co_context::task<raft::read_barrier_reply> get_read_idx() {
         // TODO: forward to leader by two-way rpc
         auto leader_id = _fsm->current_leader();
-        if (leader_id != raft::server_id{}) {
+        if (leader_id == raft::server_id{}) {
             co_return false;
         }
         if (leader_id == _id) {
@@ -109,7 +112,8 @@ class raft_server {
     std::vector<waiter> _apply_waiters;
     std::vector<active_read> _active_reads;
     // persistance
-    std::unique_ptr<service::raft_persistence> _persistence;
+    // std::unique_ptr<service::raft_persistence> _persistence;
+    std::unique_ptr<service::temp_persistence> _persistence;
     std::unique_ptr<service::raft_state_machine> _state_machine;
     std::unique_ptr<service::raft_rpc> _rpc;
     std::unique_ptr<raft::failure_detector> _failure_detector;

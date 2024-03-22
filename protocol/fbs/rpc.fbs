@@ -12,7 +12,7 @@ enum OperationCode : short {
     READ_TASK = 0x0007,
     WRITE_TASK = 0x0008,
     // for forward
-    FORWARD_APPEND_ENTRY = 0x0009,
+    FORWARD_CLI_WRITE = 0x0009,
     FORWARD_READ_BARRIER = 0x000A,
 }
 
@@ -149,19 +149,17 @@ table WriteReply {
 
 
 // forward to leader
-table ForwardAppendEntry {
+table ForwardCliWrite {
     from_id: int64 = -1;
     group_id: int64 = -1;
     // 
     command: Command;
 }
-table ForwardAppendEntryReply {
+table ForwardCliWriteReply {
     from_id: int64 = -1;
     group_id: int64 = -1;
     // 
     success: bool;
-    entry_id: int64 = -1;
-    term: int64 = -1;
 }
 table ForwardReadBarrier {
     from_id: int64 = -1;

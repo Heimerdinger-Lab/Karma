@@ -10,7 +10,7 @@ class forward_read_barrier_task_reply : public task {
         : m_from_id(m_from_id), m_group_id(m_group_id), m_reply(std::move(m_reply)) {}
     std::unique_ptr<transport::frame> gen_frame() override {
         auto ret_frame = std::make_unique<transport::frame>(
-            karma_rpc::OperationCode::OperationCode_FORWARD_APPEND_ENTRY);
+            karma_rpc::OperationCode::OperationCode_FORWARD_READ_BARRIER);
         // header
         flatbuffers::FlatBufferBuilder header_builder;
 
@@ -23,7 +23,7 @@ class forward_read_barrier_task_reply : public task {
         uint8_t *buffer = header_builder.GetBufferPointer();
         int size = header_builder.GetSize();
         ret_frame->m_header.insert(ret_frame->m_header.end(), buffer, buffer + size);
-        ret_frame->flag_request();
+        ret_frame->flag_response();
         return ret_frame;
     }
     co_context::task<void> callback(transport::frame &reply_frame) override { co_return; };
@@ -60,8 +60,8 @@ class forward_read_barrier_task : public task {
         m_prom = prom;
     }
     std::unique_ptr<transport::frame> gen_frame() override {
-        auto ret_frame =
-            std::make_unique<transport::frame>(karma_rpc::OperationCode::OperationCode_ECHO);
+        auto ret_frame = std::make_unique<transport::frame>(
+            karma_rpc::OperationCode::OperationCode_FORWARD_READ_BARRIER);
         // header
         flatbuffers::FlatBufferBuilder header_builder;
         auto header = karma_rpc::CreateForwardReadBarrier(header_builder, m_from_id, m_group_id);
@@ -78,6 +78,11 @@ class forward_read_barrier_task : public task {
         co_await m_prom->release(
             std::move(forward_read_barrier_task_reply::from_frame(reply_frame)));
         co_return;
+    }
+    static std::unique_ptr<forward_read_barrier_task> from_frame(transport::frame &frame) {
+        std::string &buffer_header = frame.m_header;
+        auto header = flatbuffers::GetRoot<karma_rpc::ForwardReadBarrier>(buffer_header.data());
+        return std::make_unique<forward_read_barrier_task>(header->from_id(), header->group_id());
     }
 
    private:

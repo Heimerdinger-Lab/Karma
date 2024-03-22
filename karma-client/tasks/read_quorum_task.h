@@ -19,6 +19,8 @@ class read_quorum_reply : public task {
         // one way rpc do not need to implement it.
         co_return;
     }
+    uint64_t from_id() { return m_from_id; }
+    raft::read_quorum_reply reply() { return m_reply; }
 
    private:
     uint64_t m_from_id;

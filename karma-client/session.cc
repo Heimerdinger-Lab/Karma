@@ -1,6 +1,10 @@
 #include "session.h"
 
 #include <boost/log/trivial.hpp>
+
+#include "karma-client/tasks/forward_cli_write_task.h"
+#include "karma-client/tasks/forward_read_barrier_task.h"
+#include "protocol/rpc_generated.h"
 co_context::task<bool> client::session::write(task& task_) {
     if (!valid()) {
         BOOST_LOG_TRIVIAL(error)
@@ -8,11 +12,6 @@ co_context::task<bool> client::session::write(task& task_) {
         co_return false;
     }
     auto frame = task_.gen_frame();
-    if (!frame->is_request()) {
-        BOOST_LOG_TRIVIAL(error)
-            << "Write an unexpected frame to this session, the session will be reset";
-        co_return false;
-    }
     if (m_inflight_requests.contains(frame->m_seq)) {
         BOOST_LOG_TRIVIAL(error)
             << "Fail to do a write task on this session because the wrong sequence of the frame";
@@ -37,7 +36,8 @@ co_context::task<void> client::session::loop() {
         if (frame->is_response()) {
             if (!m_inflight_requests.contains(frame->m_seq)) {
                 BOOST_LOG_TRIVIAL(trace)
-                    << "Read an unexpected frame from this session, which is not inflight";
+                    << "Read an unexpected frame from this session, which is not inflight, seq is "
+                    << frame->m_seq;
                 continue;
             }
             BOOST_LOG_TRIVIAL(trace)
@@ -56,6 +56,14 @@ co_context::task<void> client::session::loop() {
             } else if (frame->m_operation_code == karma_rpc::OperationCode_WRITE_TASK) {
                 auto s = (cli_write_request&)(*task);
                 BOOST_LOG_TRIVIAL(trace) << "Receive a write reply";
+                co_await s.callback(*frame);
+            } else if (frame->m_operation_code == karma_rpc::OperationCode_FORWARD_CLI_WRITE) {
+                auto s = (forward_cli_write_task&)(*task);
+                BOOST_LOG_TRIVIAL(trace) << "Receive a forward cli write reply";
+                co_await s.callback(*frame);
+            } else if (frame->m_operation_code == karma_rpc::OperationCode_FORWARD_READ_BARRIER) {
+                auto s = (forward_read_barrier_task&)(*task);
+                BOOST_LOG_TRIVIAL(trace) << "Receive a forward read barrier reply";
                 co_await s.callback(*frame);
             }
         } else {

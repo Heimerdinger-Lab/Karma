@@ -72,11 +72,11 @@ struct WriteRequestBuilder;
 struct WriteReply;
 struct WriteReplyBuilder;
 
-struct ForwardAppendEntry;
-struct ForwardAppendEntryBuilder;
+struct ForwardCliWrite;
+struct ForwardCliWriteBuilder;
 
-struct ForwardAppendEntryReply;
-struct ForwardAppendEntryReplyBuilder;
+struct ForwardCliWriteReply;
+struct ForwardCliWriteReplyBuilder;
 
 struct ForwardReadBarrier;
 struct ForwardReadBarrierBuilder;
@@ -94,7 +94,7 @@ enum OperationCode : int16_t {
   OperationCode_READ_QUORUM = 6,
   OperationCode_READ_TASK = 7,
   OperationCode_WRITE_TASK = 8,
-  OperationCode_FORWARD_APPEND_ENTRY = 9,
+  OperationCode_FORWARD_CLI_WRITE = 9,
   OperationCode_FORWARD_READ_BARRIER = 10,
   OperationCode_MIN = OperationCode_UNKNOW,
   OperationCode_MAX = OperationCode_FORWARD_READ_BARRIER
@@ -111,7 +111,7 @@ inline const OperationCode (&EnumValuesOperationCode())[11] {
     OperationCode_READ_QUORUM,
     OperationCode_READ_TASK,
     OperationCode_WRITE_TASK,
-    OperationCode_FORWARD_APPEND_ENTRY,
+    OperationCode_FORWARD_CLI_WRITE,
     OperationCode_FORWARD_READ_BARRIER
   };
   return values;
@@ -128,7 +128,7 @@ inline const char * const *EnumNamesOperationCode() {
     "READ_QUORUM",
     "READ_TASK",
     "WRITE_TASK",
-    "FORWARD_APPEND_ENTRY",
+    "FORWARD_CLI_WRITE",
     "FORWARD_READ_BARRIER",
     nullptr
   };
@@ -1537,8 +1537,8 @@ inline ::flatbuffers::Offset<WriteReply> CreateWriteReply(
   return builder_.Finish();
 }
 
-struct ForwardAppendEntry FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
-  typedef ForwardAppendEntryBuilder Builder;
+struct ForwardCliWrite FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef ForwardCliWriteBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_FROM_ID = 4,
     VT_GROUP_ID = 6,
@@ -1563,50 +1563,48 @@ struct ForwardAppendEntry FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table
   }
 };
 
-struct ForwardAppendEntryBuilder {
-  typedef ForwardAppendEntry Table;
+struct ForwardCliWriteBuilder {
+  typedef ForwardCliWrite Table;
   ::flatbuffers::FlatBufferBuilder &fbb_;
   ::flatbuffers::uoffset_t start_;
   void add_from_id(int64_t from_id) {
-    fbb_.AddElement<int64_t>(ForwardAppendEntry::VT_FROM_ID, from_id, -1LL);
+    fbb_.AddElement<int64_t>(ForwardCliWrite::VT_FROM_ID, from_id, -1LL);
   }
   void add_group_id(int64_t group_id) {
-    fbb_.AddElement<int64_t>(ForwardAppendEntry::VT_GROUP_ID, group_id, -1LL);
+    fbb_.AddElement<int64_t>(ForwardCliWrite::VT_GROUP_ID, group_id, -1LL);
   }
   void add_command(::flatbuffers::Offset<karma_rpc::Command> command) {
-    fbb_.AddOffset(ForwardAppendEntry::VT_COMMAND, command);
+    fbb_.AddOffset(ForwardCliWrite::VT_COMMAND, command);
   }
-  explicit ForwardAppendEntryBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+  explicit ForwardCliWriteBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  ::flatbuffers::Offset<ForwardAppendEntry> Finish() {
+  ::flatbuffers::Offset<ForwardCliWrite> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = ::flatbuffers::Offset<ForwardAppendEntry>(end);
+    auto o = ::flatbuffers::Offset<ForwardCliWrite>(end);
     return o;
   }
 };
 
-inline ::flatbuffers::Offset<ForwardAppendEntry> CreateForwardAppendEntry(
+inline ::flatbuffers::Offset<ForwardCliWrite> CreateForwardCliWrite(
     ::flatbuffers::FlatBufferBuilder &_fbb,
     int64_t from_id = -1LL,
     int64_t group_id = -1LL,
     ::flatbuffers::Offset<karma_rpc::Command> command = 0) {
-  ForwardAppendEntryBuilder builder_(_fbb);
+  ForwardCliWriteBuilder builder_(_fbb);
   builder_.add_group_id(group_id);
   builder_.add_from_id(from_id);
   builder_.add_command(command);
   return builder_.Finish();
 }
 
-struct ForwardAppendEntryReply FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
-  typedef ForwardAppendEntryReplyBuilder Builder;
+struct ForwardCliWriteReply FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef ForwardCliWriteReplyBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_FROM_ID = 4,
     VT_GROUP_ID = 6,
-    VT_SUCCESS = 8,
-    VT_ENTRY_ID = 10,
-    VT_TERM = 12
+    VT_SUCCESS = 8
   };
   int64_t from_id() const {
     return GetField<int64_t>(VT_FROM_ID, -1LL);
@@ -1617,63 +1615,45 @@ struct ForwardAppendEntryReply FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::
   bool success() const {
     return GetField<uint8_t>(VT_SUCCESS, 0) != 0;
   }
-  int64_t entry_id() const {
-    return GetField<int64_t>(VT_ENTRY_ID, -1LL);
-  }
-  int64_t term() const {
-    return GetField<int64_t>(VT_TERM, -1LL);
-  }
   bool Verify(::flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<int64_t>(verifier, VT_FROM_ID, 8) &&
            VerifyField<int64_t>(verifier, VT_GROUP_ID, 8) &&
            VerifyField<uint8_t>(verifier, VT_SUCCESS, 1) &&
-           VerifyField<int64_t>(verifier, VT_ENTRY_ID, 8) &&
-           VerifyField<int64_t>(verifier, VT_TERM, 8) &&
            verifier.EndTable();
   }
 };
 
-struct ForwardAppendEntryReplyBuilder {
-  typedef ForwardAppendEntryReply Table;
+struct ForwardCliWriteReplyBuilder {
+  typedef ForwardCliWriteReply Table;
   ::flatbuffers::FlatBufferBuilder &fbb_;
   ::flatbuffers::uoffset_t start_;
   void add_from_id(int64_t from_id) {
-    fbb_.AddElement<int64_t>(ForwardAppendEntryReply::VT_FROM_ID, from_id, -1LL);
+    fbb_.AddElement<int64_t>(ForwardCliWriteReply::VT_FROM_ID, from_id, -1LL);
   }
   void add_group_id(int64_t group_id) {
-    fbb_.AddElement<int64_t>(ForwardAppendEntryReply::VT_GROUP_ID, group_id, -1LL);
+    fbb_.AddElement<int64_t>(ForwardCliWriteReply::VT_GROUP_ID, group_id, -1LL);
   }
   void add_success(bool success) {
-    fbb_.AddElement<uint8_t>(ForwardAppendEntryReply::VT_SUCCESS, static_cast<uint8_t>(success), 0);
+    fbb_.AddElement<uint8_t>(ForwardCliWriteReply::VT_SUCCESS, static_cast<uint8_t>(success), 0);
   }
-  void add_entry_id(int64_t entry_id) {
-    fbb_.AddElement<int64_t>(ForwardAppendEntryReply::VT_ENTRY_ID, entry_id, -1LL);
-  }
-  void add_term(int64_t term) {
-    fbb_.AddElement<int64_t>(ForwardAppendEntryReply::VT_TERM, term, -1LL);
-  }
-  explicit ForwardAppendEntryReplyBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+  explicit ForwardCliWriteReplyBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  ::flatbuffers::Offset<ForwardAppendEntryReply> Finish() {
+  ::flatbuffers::Offset<ForwardCliWriteReply> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = ::flatbuffers::Offset<ForwardAppendEntryReply>(end);
+    auto o = ::flatbuffers::Offset<ForwardCliWriteReply>(end);
     return o;
   }
 };
 
-inline ::flatbuffers::Offset<ForwardAppendEntryReply> CreateForwardAppendEntryReply(
+inline ::flatbuffers::Offset<ForwardCliWriteReply> CreateForwardCliWriteReply(
     ::flatbuffers::FlatBufferBuilder &_fbb,
     int64_t from_id = -1LL,
     int64_t group_id = -1LL,
-    bool success = false,
-    int64_t entry_id = -1LL,
-    int64_t term = -1LL) {
-  ForwardAppendEntryReplyBuilder builder_(_fbb);
-  builder_.add_term(term);
-  builder_.add_entry_id(entry_id);
+    bool success = false) {
+  ForwardCliWriteReplyBuilder builder_(_fbb);
   builder_.add_group_id(group_id);
   builder_.add_from_id(from_id);
   builder_.add_success(success);
