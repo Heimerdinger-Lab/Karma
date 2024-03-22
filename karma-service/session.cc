@@ -1,6 +1,13 @@
 #include "session.h"
 
 #include "co_context/io_context.hpp"
+#include "karma-client/tasks/append_entry_task.h"
+#include "karma-client/tasks/cli_write_task.h"
+#include "karma-client/tasks/forward_cli_write_task.h"
+#include "karma-client/tasks/forward_read_barrier_task.h"
+#include "karma-client/tasks/read_quorum_task.h"
+#include "karma-raft/raft.hh"
+#include "protocol/rpc_generated.h"
 co_context::task<void> service::session::read_loop(
     co_context::channel<std::unique_ptr<transport::frame>, 1024>& channel,
     transport::connection& conn) {
@@ -42,24 +49,45 @@ co_context::task<void> service::session::read_loop(
                 auto read_task = client::cli_read_request::from_frame(*frame);
                 auto val = co_await m_raft.cli_read(read_task->key());
                 if (val.has_value()) {
+                    BOOST_LOG_TRIVIAL(trace) << "Generate a read reply: " << val.value();
                     client::cli_read_reply reply(true, val.value());
-                    auto frame = reply.gen_frame();
-                    frame->m_seq = frame->m_seq;
-                    co_await channel.release(std::move(frame));
+                    auto reply_frame = reply.gen_frame();
+                    reply_frame->m_seq = frame->m_seq;
+                    co_await channel.release(std::move(reply_frame));
                 } else {
                     client::cli_read_reply reply(false, "");
-                    auto frame = reply.gen_frame();
-                    frame->m_seq = frame->m_seq;
-                    co_await channel.release(std::move(frame));
+                    auto reply_frame = reply.gen_frame();
+                    reply_frame->m_seq = frame->m_seq;
+                    co_await channel.release(std::move(reply_frame));
                 }
             } else if (frame->m_operation_code == karma_rpc::OperationCode_WRITE_TASK) {
                 BOOST_LOG_TRIVIAL(trace) << "Receive an client write request";
                 auto write_task = client::cli_write_request::from_frame(*frame);
                 co_await m_raft.cli_write(write_task->key(), write_task->value());
                 client::cli_write_reply reply(true);
-                auto frame = reply.gen_frame();
-                frame->m_seq = frame->m_seq;
-                co_await channel.release(std::move(frame));
+                auto reply_frame = reply.gen_frame();
+                reply_frame->m_seq = frame->m_seq;
+                co_await channel.release(std::move(reply_frame));
+            } else if (frame->m_operation_code == karma_rpc::OperationCode_FORWARD_CLI_WRITE) {
+                BOOST_LOG_TRIVIAL(trace) << "Receive a forward cli write request";
+                auto forward_append_task = client::forward_cli_write_task::from_frame(*frame);
+                auto ret = co_await m_raft.cli_write(forward_append_task->key(),
+                                                     forward_append_task->value());
+                client::forward_cli_write_task_reply reply(0, 0, client::cli_write_reply(ret));
+                auto reply_frame = reply.gen_frame();
+                reply_frame->m_seq = frame->m_seq;
+                co_await channel.release(std::move(reply_frame));
+            } else if (frame->m_operation_code == karma_rpc::OperationCode_FORWARD_READ_BARRIER) {
+                BOOST_LOG_TRIVIAL(trace) << "Receive a forward read barrier request";
+                auto forward_read_barrier = client::forward_read_barrier_task::from_frame(*frame);
+                // 如果不是leader，则自己构造一个reply
+                auto read_idx = co_await m_raft.get_read_idx();
+                client::forward_read_barrier_task_reply reply(0, 0,
+                                                              raft::read_barrier_reply(read_idx));
+                auto reply_frame = reply.gen_frame();
+                reply_frame->m_seq = frame->m_seq;
+                co_await channel.release(std::move(reply_frame));
+
             } else {
                 BOOST_LOG_TRIVIAL(error) << "Receive an unexpected request";
             }
@@ -69,7 +97,23 @@ co_context::task<void> service::session::read_loop(
         } else {
             // 有follower可能收到Append entry 和 read barrier的来自leader的响应
             //
-            BOOST_LOG_TRIVIAL(error) << "Receive an unexpected reply on server session";
+            if (frame->m_operation_code == karma_rpc::OperationCode_VOTE) {
+                BOOST_LOG_TRIVIAL(trace) << "Receive an vote reply";
+                auto vote_reply = client::vote_reply::from_frame(*frame);
+                m_raft.receive(vote_reply->from_id(), vote_reply->reply());
+            } else if (frame->m_operation_code == karma_rpc::OperationCode_HEARTBEAT) {
+                BOOST_LOG_TRIVIAL(trace) << "Receive a heartbeat";
+            } else if (frame->m_operation_code == karma_rpc::OperationCode_APPEND_ENTRY) {
+                BOOST_LOG_TRIVIAL(trace) << "Receive an append entry request";
+                auto append_reply = client::append_entry_reply::from_frame(*frame);
+                m_raft.receive(append_reply->from_id(), append_reply->reply());
+            } else if (frame->m_operation_code == karma_rpc::OperationCode_READ_QUORUM) {
+                BOOST_LOG_TRIVIAL(trace) << "Receive an read quorum";
+                auto read_quorum_reply = client::read_quorum_reply::from_frame(*frame);
+                m_raft.receive(read_quorum_reply->from_id(), read_quorum_reply->reply());
+            } else {
+                BOOST_LOG_TRIVIAL(error) << "Receive an unexpected reply on server session";
+            }
         }
     }
 }

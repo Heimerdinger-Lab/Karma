@@ -1,20 +1,24 @@
 #include "worker.h"
 
+#include <memory>
+
 #include "co_context/io_context.hpp"
+#include "karma-service/raft/temp_persistence.h"
 co_context::task<> service::worker::start() {
     BOOST_LOG_TRIVIAL(trace) << "Worker starting";
     auto rpc_ = std::make_unique<service::raft_rpc>(
         m_cfg.m_id, std::make_unique<client::client>(m_cfg.m_members));
     auto sm_ = std::make_unique<service::raft_state_machine>();
     auto fd_ = std::make_unique<service::raft_failure_detector>();
+    auto persistence_ = std::make_unique<service::temp_persistence>();
     std::vector<raft::config_member> members;
     for (int i = 1; i <= m_cfg.m_count; i++) {
         raft::server_address address(i, m_cfg.m_members[i]);
         raft::config_member member(address, true);
         members.push_back(member);
     }
-    m_raft =
-        raft_server::create(m_cfg.m_id, std::move(sm_), std::move(rpc_), std::move(fd_), members);
+    m_raft = raft_server::create(m_cfg.m_id, std::move(sm_), std::move(rpc_), std::move(fd_),
+                                 std::move(persistence_), members);
 
     auto current_address = m_cfg.m_members[m_cfg.m_id];
     size_t pos = current_address.find(':');

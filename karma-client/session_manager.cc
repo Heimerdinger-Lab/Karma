@@ -11,7 +11,8 @@ client::session_manager::get_composite_session(std::string host, uint16_t port) 
             if (cs.has_value()) {
                 m_sessions[addr.to_ip_port()] = std::move(cs.value());
             } else {
-                BOOST_LOG_TRIVIAL(error) << "Fail to create a composite session";
+                BOOST_LOG_TRIVIAL(error)
+                    << "Fail to create a composite session to " << addr.to_ip_port();
                 co_return std::nullopt;
             }
         }

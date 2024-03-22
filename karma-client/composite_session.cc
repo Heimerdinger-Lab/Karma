@@ -10,7 +10,7 @@ client::composite_session::new_composite_session(std::string host, uint16_t port
             std::make_unique<co_context::socket>(co_context::socket::create_tcp(addr.family()));
         int res = co_await sock->connect(addr);
         if (res < 0) {
-            BOOST_LOG_TRIVIAL(error) << "Fail to bind socket to the address";
+            BOOST_LOG_TRIVIAL(error) << "Fail to connect the address: " << addr.to_ip_port();
             co_return std::nullopt;
         }
         auto conn = std::make_unique<transport::connection>(std::move(sock), host, port);
